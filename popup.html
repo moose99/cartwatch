@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amazon Budget Tracker</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="header">
+    <span class="logo">&#128722;</span>
+    <span class="title">Amazon Budget Tracker</span>
+  </div>
+
+  <div class="month-nav">
+    <button id="prev-month" class="nav-btn" title="Previous month">&#8249;</button>
+    <span id="month-label" class="month-label"></span>
+    <button id="next-month" class="nav-btn" title="Next month">&#8250;</button>
+  </div>
+
+  <div class="budget-section">
+    <div class="budget-row">
+      <span class="label">Monthly budget</span>
+      <div class="budget-input-wrap">
+        <span class="currency">$</span>
+        <input type="number" id="budget-input" min="0" step="10" placeholder="0">
+      </div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <span class="progress-pct" id="progress-pct">0%</span>
+    </div>
+
+    <div class="amounts-row">
+      <div class="amount-block">
+        <span class="amount-value" id="spent-amount">$0.00</span>
+        <span class="amount-label">spent</span>
+      </div>
+      <div class="amount-block right">
+        <span class="amount-value" id="remaining-amount">--</span>
+        <span class="amount-label" id="remaining-label">remaining</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="orders-section">
+    <div class="orders-header">
+      <span class="label">Orders this month</span>
+      <span id="order-count" class="order-count"></span>
+    </div>
+    <div class="filter-row" id="filter-row" style="display:none">
+      <select id="card-filter" class="card-filter">
+        <option value="">All payment methods</option>
+      </select>
+    </div>
+    <ul id="orders-list" class="orders-list"></ul>
+  </div>
+
+  <div class="footer">
+    <button id="scan-btn" class="scan-btn">Scan Orders</button>
+    <div id="scan-bar-wrap" class="scan-bar-wrap" style="display:none">
+      <div class="scan-bar">
+        <div class="scan-bar-fill" id="scan-bar-fill"></div>
+      </div>
+    </div>
+    <div id="scan-progress" class="scan-progress" style="display:none"></div>
+    <div id="last-scan" class="last-scan"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
