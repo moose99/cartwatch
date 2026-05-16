@@ -1,4 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
   <rect width="48" height="48" rx="8" fill="#232f3e"/>
-  <text x="24" y="33" font-size="26" text-anchor="middle" font-family="Arial">&#128722;</text>
+  <!-- orange budget bar inside cart basket -->
+  <rect x="21" y="24" width="17" height="6" rx="2" fill="#FF9900"/>
+  <!-- cart: handle, arm, basket outline -->
+  <path d="M6 14 L17 14 L22 30 L37 30 L40 18 L20 18"
+        fill="none" stroke="white" stroke-width="2.5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- wheels -->
+  <circle cx="25" cy="36" r="3" fill="none" stroke="white" stroke-width="2.5"/>
+  <circle cx="35" cy="36" r="3" fill="none" stroke="white" stroke-width="2.5"/>
 </svg>

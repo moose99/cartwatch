@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Amazon Budget Tracker",
+  "name": "CartWatch",
   "version": "1.0.0",
   "description": "Track your Amazon spending and stay under your monthly budget.",
   "permissions": ["storage", "tabs"],
@@ -16,7 +16,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Amazon Budget Tracker"
+    "default_title": "CartWatch"
   },
   "content_scripts": [
     {
