@@ -11,6 +11,45 @@ const BASE_URL = 'https://www.amazon.com';
 const PAGE_SIZE = 10;
 let scanState = null;
 
+// --- CartWatch window management ---
+
+let watchWindowId = null;
+
+chrome.action.onClicked.addListener(async () => {
+  if (watchWindowId !== null) {
+    try {
+      await chrome.windows.update(watchWindowId, { focused: true });
+      return;
+    } catch (e) {
+      watchWindowId = null;
+    }
+  }
+  const { winBounds } = await chrome.storage.local.get({ winBounds: { width: 420, height: 620 } });
+  const createOpts = {
+    url: chrome.runtime.getURL('popup.html'),
+    type: 'popup',
+    width: winBounds.width,
+    height: winBounds.height,
+    focused: true,
+  };
+  if (winBounds.left !== undefined) {
+    createOpts.left = winBounds.left;
+    createOpts.top  = winBounds.top;
+  }
+  const win = await chrome.windows.create(createOpts);
+  watchWindowId = win.id;
+});
+
+chrome.windows.onRemoved.addListener(id => {
+  if (id === watchWindowId) watchWindowId = null;
+});
+
+chrome.windows.onBoundsChanged.addListener(win => {
+  if (win.id === watchWindowId) {
+    chrome.storage.local.set({ winBounds: { width: win.width, height: win.height, left: win.left, top: win.top } });
+  }
+});
+
 function isStale(s) {
   return Date.now() - (s.startedAt || 0) > 5 * 60 * 1000;
 }

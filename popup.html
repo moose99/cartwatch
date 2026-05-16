@@ -57,18 +57,24 @@
   <div class="orders-section">
     <div class="orders-header">
       <span class="label">Orders this month</span>
+      <div class="sort-controls">
+        <button id="sort-date" class="sort-btn sort-active">Date ↓</button>
+        <button id="sort-amount" class="sort-btn">Amount</button>
+      </div>
       <span id="order-count" class="order-count"></span>
     </div>
     <div class="filter-row" id="filter-row" style="display:none">
-      <select id="card-filter" class="card-filter">
-        <option value="">All payment methods</option>
-      </select>
+      <label class="filter-all-label">
+        <input type="checkbox" id="filter-all" checked>
+        <span>All payment methods</span>
+      </label>
+      <div id="card-filter-checks" class="card-filter-checks"></div>
     </div>
     <ul id="orders-list" class="orders-list"></ul>
   </div>
 
   <div class="footer">
-    <button id="scan-btn" class="scan-btn">Scan Orders</button>
+    <button id="scan-btn" class="scan-btn">Update</button>
     <div id="scan-bar-wrap" class="scan-bar-wrap" style="display:none">
       <div class="scan-bar">
         <div class="scan-bar-fill" id="scan-bar-fill"></div>

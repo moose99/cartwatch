@@ -15,7 +15,6 @@
     "https://www.amazon.com.mx/*"
   ],
   "action": {
-    "default_popup": "popup.html",
     "default_title": "CartWatch",
     "default_icon": {
       "16": "icons/icon16.png",

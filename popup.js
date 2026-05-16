@@ -4,7 +4,9 @@
   let viewMonth = currentYearMonth();
   let allOrders = {};
   let budget = 0;
-  let cardFilter = '';
+  let excludedCards = new Set(); // methods the user has unchecked
+  let sortBy = 'date';           // 'date' | 'amount'
+  let sortDir = -1;              // -1 = descending, 1 = ascending
 
   // --- Init ---
 
@@ -13,7 +15,16 @@
   document.getElementById('next-month').addEventListener('click', () => { viewMonth = offsetMonth(viewMonth, +1); render(); });
   document.getElementById('budget-input').addEventListener('change', onBudgetChange);
   document.getElementById('budget-input').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
-  document.getElementById('card-filter').addEventListener('change', e => { cardFilter = e.target.value; render(); });
+  document.getElementById('sort-date').addEventListener('click', () => {
+    if (sortBy === 'date') sortDir = -sortDir; else { sortBy = 'date'; sortDir = -1; }
+    renderSortButtons();
+    render();
+  });
+  document.getElementById('sort-amount').addEventListener('click', () => {
+    if (sortBy === 'amount') sortDir = -sortDir; else { sortBy = 'amount'; sortDir = -1; }
+    renderSortButtons();
+    render();
+  });
 
   chrome.storage.local.get({ orders: {}, budget: 0, lastScan: 0, scanStatus: null }, data => {
     allOrders = data.orders;
@@ -21,6 +32,7 @@
     document.getElementById('budget-input').value = budget || '';
     renderScanProgress(data.scanStatus, data.lastScan);
     renderCardFilter();
+    renderSortButtons();
     render();
   });
 
@@ -77,7 +89,10 @@
       document.getElementById('order-count').textContent = '';
     } else {
       document.getElementById('order-count').textContent = monthOrders.length;
-      monthOrders.sort((a, b) => b.date.localeCompare(a.date));
+      monthOrders.sort((a, b) => {
+        if (sortBy === 'amount') return (a.amount - b.amount) * sortDir;
+        return a.date.localeCompare(b.date) * sortDir;
+      });
       monthOrders.forEach(o => {
         const displayName = o.productName || o.id || 'Unknown order';
         const li = document.createElement('li');
@@ -93,7 +108,8 @@
   }
 
   function renderCardFilter() {
-    const select = document.getElementById('card-filter');
+    const container = document.getElementById('card-filter-checks');
+    const filterAllCb = document.getElementById('filter-all');
     const filterRow = document.getElementById('filter-row');
 
     const methods = new Set();
@@ -107,17 +123,53 @@
     }
     filterRow.style.display = '';
 
-    const current = cardFilter;
-    select.innerHTML = '<option value="">All payment methods</option>';
+    // remove excluded methods that no longer exist
+    for (const m of excludedCards) {
+      if (!methods.has(m)) excludedCards.delete(m);
+    }
+
+    container.innerHTML = '';
     Array.from(methods).sort().forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m;
-      opt.textContent = m;
-      if (m === current) opt.selected = true;
-      select.appendChild(opt);
+      const label = document.createElement('label');
+      label.className = 'filter-check-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = m;
+      cb.checked = !excludedCards.has(m);
+      cb.addEventListener('change', () => {
+        if (cb.checked) excludedCards.delete(m); else excludedCards.add(m);
+        filterAllCb.checked = excludedCards.size === 0;
+        filterAllCb.indeterminate = excludedCards.size > 0 && excludedCards.size < methods.size;
+        render();
+      });
+      const span = document.createElement('span');
+      span.textContent = m;
+      label.appendChild(cb);
+      label.appendChild(span);
+      container.appendChild(label);
     });
 
-    if (current && !methods.has(current)) cardFilter = '';
+    filterAllCb.checked = excludedCards.size === 0;
+    filterAllCb.indeterminate = excludedCards.size > 0 && excludedCards.size < methods.size;
+    filterAllCb.onchange = () => {
+      if (filterAllCb.checked) {
+        excludedCards.clear();
+      } else {
+        methods.forEach(m => excludedCards.add(m));
+      }
+      renderCardFilter();
+      render();
+    };
+  }
+
+  function renderSortButtons() {
+    const dateBtn = document.getElementById('sort-date');
+    const amtBtn = document.getElementById('sort-amount');
+    const arrow = sortDir === -1 ? ' ↓' : ' ↑';
+    dateBtn.textContent = 'Date' + (sortBy === 'date' ? arrow : '');
+    dateBtn.classList.toggle('sort-active', sortBy === 'date');
+    amtBtn.textContent = 'Amount' + (sortBy === 'amount' ? arrow : '');
+    amtBtn.classList.toggle('sort-active', sortBy === 'amount');
   }
 
   function renderScanProgress(status, lastScanTs) {
@@ -129,7 +181,7 @@
 
     const scanning = status && status.scanning && !isStale(status);
     btn.disabled = scanning;
-    btn.textContent = scanning ? 'Scanning...' : 'Scan Orders';
+    btn.textContent = scanning ? 'Scanning...' : 'Update';
 
     if (scanning) {
       barWrap.style.display = '';
@@ -190,7 +242,7 @@
   function getOrdersForMonth(ym) {
     return Object.values(allOrders).filter(o => {
       if (!o.date || !o.date.startsWith(ym)) return false;
-      if (cardFilter && (o.paymentMethod || '') !== cardFilter) return false;
+      if (excludedCards.size > 0 && excludedCards.has(o.paymentMethod || '')) return false;
       return true;
     });
   }
