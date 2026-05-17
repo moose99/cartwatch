@@ -54,20 +54,52 @@ function isStale(s) {
   return Date.now() - (s.startedAt || 0) > 5 * 60 * 1000;
 }
 
-chrome.runtime.onMessage.addListener((msg, sender) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'startScan') {
     beginScan(msg.baseUrl || BASE_URL, msg.targetMonth);
   }
   if (msg.type === 'pageScraped' && scanState && sender.tab?.id === scanState.tabId) {
     handlePageScraped(msg.orders, msg.totalCount).catch(console.error);
   }
+  if (msg.type === 'isScanActive') {
+    sendResponse({ active: scanState !== null });
+    return true;
+  }
+  if (msg.type === 'walletScraped') {
+    handleWalletScraped(msg.cards).catch(console.error);
+  }
 });
 
-function isValidPaymentMethod(s) {
-  if (!s || typeof s !== 'string') return false;
-  if (/ending in \d{4}/i.test(s)) return true;
-  if (/^Gift Card Balance$|^Promotional Credit$/i.test(s)) return true;
-  return false;
+async function handleWalletScraped(cards) {
+  if (!Array.isArray(cards) || cards.length === 0) {
+    console.log('[ABT] Wallet message had no cards; nothing to store.');
+    return;
+  }
+  const { walletCards = [] } = await chrome.storage.local.get({ walletCards: [] });
+  // index existing by last4 so we update in-place
+  const byLast4 = new Map(walletCards.map(c => [c.last4, c]));
+  cards.forEach(c => byLast4.set(c.last4, { ...byLast4.get(c.last4), ...c }));
+  const merged = Array.from(byLast4.values());
+  await chrome.storage.local.set({ walletCards: merged, walletScannedAt: Date.now() });
+  console.log('[ABT] Wallet stored:', merged.length, 'cards total');
+
+  // backfill any stored orders whose paymentMethod is partial (no name) using wallet data
+  const { orders = {} } = await chrome.storage.local.get({ orders: {} });
+  let updated = 0;
+  Object.values(orders).forEach(o => {
+    if (!o.paymentMethod) return;
+    const m = o.paymentMethod.match(/ending in (\d{4})/i);
+    if (!m) return;
+    const card = byLast4.get(m[1]);
+    if (!card || !card.name) return;
+    if (/ · .+/.test(o.paymentMethod)) return; // already has a name
+    o.paymentMethod = `${card.cardType || o.paymentMethod.split(' ending')[0]} ending in ${m[1]} · ${card.name}`;
+    updated++;
+  });
+  if (updated > 0) {
+    await chrome.storage.local.set({ orders });
+    console.log('[ABT] Backfilled', updated, 'orders with cardholder name from wallet');
+  }
 }
 
 function buildUrl(baseUrl, year, startIndex) {
@@ -80,19 +112,6 @@ async function beginScan(baseUrl, targetMonth) {
   if (data.scanStatus && data.scanStatus.scanning && !isStale(data.scanStatus)) {
     console.log('[ABT] Scan already in progress, aborting');
     return;
-  }
-
-  // Clean up bad payment method values from previous scans so they get re-fetched
-  let cleared = 0;
-  Object.values(data.orders).forEach(o => {
-    if (o.paymentMethod && !isValidPaymentMethod(o.paymentMethod)) {
-      delete o.paymentMethod;
-      cleared++;
-    }
-  });
-  if (cleared > 0) {
-    console.log('[ABT] Cleared', cleared, 'invalid payment method values; will re-fetch.');
-    await chrome.storage.local.set({ orders: data.orders });
   }
 
   const startedAt = Date.now();
@@ -108,7 +127,6 @@ async function beginScan(baseUrl, targetMonth) {
     scanned: 0,
     monthFound: 0,
     total: null,
-    newIds: new Set(),
     tabId: null,
 
     // Binary search state
@@ -125,9 +143,11 @@ async function beginScan(baseUrl, targetMonth) {
   });
 
   const url = buildUrl(baseUrl, year, 0);
-  console.log('[ABT] Opening hidden scan tab.');
+  // Always create as a background tab. active:false means it appears in the
+  // user's tab bar but stays unfocused; their current tab and window keep focus.
   const tab = await chrome.tabs.create({ url, active: false });
   scanState.tabId = tab.id;
+  console.log('[ABT] Scan tab created, id:', tab.id, 'windowId:', tab.windowId, 'active:', tab.active);
 
   chrome.tabs.onRemoved.addListener(function onRemoved(tabId) {
     if (tabId !== scanState?.tabId) return;
@@ -176,7 +196,7 @@ async function handlePageScraped(orders, totalCount) {
 
   if (orders.length === 0) {
     console.warn('[ABT] Empty page at startIndex', currentStartIndex, '- ending order scan.');
-    return startPaymentPhase();
+    return finalizeScan();
   }
 
   if (scanState.phase === 'discover') {
@@ -222,7 +242,7 @@ async function discoverStep(orders) {
 
 // Linear scan forward, collecting target-month orders until we cross before it.
 async function collectStep(orders) {
-  const { stored, newIds, targetMonth } = scanState;
+  const { stored, targetMonth } = scanState;
   const targetOrders = orders.filter(o => o.date && o.date.startsWith(targetMonth));
   const passedMonth = orders.some(o => o.date && o.date.slice(0, 7) < targetMonth);
   console.log('[ABT collect] startIndex:', scanState.currentStartIndex, 'targetOrders:', targetOrders.length, 'passedMonth:', passedMonth);
@@ -233,9 +253,10 @@ async function collectStep(orders) {
     stored[key] = {
       ...existing, ...o,
       productName: o.productName || existing.productName || null,
-      paymentMethod: existing.paymentMethod || null,
+      productNames: o.productNames || existing.productNames || null,
+      shipTo: o.shipTo || existing.shipTo || null,
+      paymentMethod: o.paymentMethod || existing.paymentMethod || null,
     };
-    if (o.id && !existing.paymentMethod) newIds.add(o.id);
   });
 
   scanState.monthFound += targetOrders.length;
@@ -254,76 +275,30 @@ async function collectStep(orders) {
 
   if (passedMonth) {
     console.log('[ABT] Order scan complete -', scanState.monthFound, 'matched after', scanState.probes, 'discover probes.');
-    return startPaymentPhase();
+    return finalizeScan();
   }
 
   const nextIndex = scanState.currentStartIndex + PAGE_SIZE;
   if (scanState.lastPageIndex !== null && nextIndex > scanState.lastPageIndex) {
     console.log('[ABT] Reached last page of year; scan complete.');
-    return startPaymentPhase();
+    return finalizeScan();
   }
   return navigateToStartIndex(nextIndex);
 }
 
-async function startPaymentPhase() {
+async function finalizeScan() {
   const tabId = scanState.tabId;
   scanState.tabId = null;
   if (tabId) {
     try { await chrome.tabs.remove(tabId); } catch (e) {}
   }
-
-  const newIdsArr = Array.from(scanState.newIds);
-  const { stored, scanned, total, startedAt, baseUrl } = scanState;
-
-  if (newIdsArr.length > 0) {
-    const BATCH = 5;
-    for (let i = 0; i < newIdsArr.length; i += BATCH) {
-      await chrome.storage.local.set({
-        scanStatus: { scanning: true, scanned, total, phase: 'details', detailTotal: newIdsArr.length, detailDone: i, startedAt }
-      });
-      const batch = newIdsArr.slice(i, i + BATCH);
-      await Promise.all(batch.map(async id => {
-        const method = await fetchPaymentMethod(baseUrl, id);
-        if (method && stored[id]) stored[id] = { ...stored[id], paymentMethod: method };
-      }));
-      await chrome.storage.local.set({ orders: stored });
-    }
-  }
-
   const monthFound = scanState.monthFound || 0;
   const targetMonth = scanState.targetMonth;
+  const { scanned } = scanState;
   const finalStatus = { scanning: false, scanned, monthFound, targetMonth };
-  if (monthFound === 0) {
-    finalStatus.info = `No orders found for ${targetMonth}.`;
-  }
+  if (monthFound === 0) finalStatus.info = `No orders found for ${targetMonth}.`;
   console.log('[ABT] Scan finished:', finalStatus);
   await chrome.storage.local.set({ scanStatus: finalStatus });
   scanState = null;
 }
 
-async function fetchPaymentMethod(baseUrl, orderId) {
-  try {
-    const url = `${baseUrl}/your-orders/order-details?orderID=${encodeURIComponent(orderId)}`;
-    const resp = await fetch(url, { credentials: 'include' });
-    if (!resp.ok) return null;
-    const html = await resp.text();
-
-    // Amazon renders payment as:
-    //   <img alt="Visa" ... class="pmts-payment-credit-card-instrument-logo"> ... ending in NNNN
-    const cardImg = html.match(/<img\s+alt="([^"]+)"[^>]*pmts-payment-credit-card-instrument-logo[\s\S]{0,800}?ending in (\d{4})/i);
-    if (cardImg) {
-      const result = `${cardImg[1].trim()} ending in ${cardImg[2]}`;
-      console.log('[ABT] Payment for', orderId, '->', result);
-      return result;
-    }
-
-    if (/Gift\s+Card\s+Balance/i.test(html)) return 'Gift Card Balance';
-    if (/Promotional\s+(?:Credit|Balance)/i.test(html)) return 'Promotional Credit';
-
-    console.log('[ABT] Payment for', orderId, '-> none matched');
-    return null;
-  } catch (e) {
-    console.warn('[ABT] fetchPaymentMethod error for', orderId, e);
-    return null;
-  }
-}

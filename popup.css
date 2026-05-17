@@ -169,13 +169,10 @@ body {
   min-height: 80px;
 }
 .orders-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   padding: 10px 14px 6px;
   flex-shrink: 0;
 }
-.orders-header .label { flex: 1; }
+/* Sort controls */
 .order-count {
   font-size: 11px;
   color: #888;
@@ -206,11 +203,69 @@ body {
   color: #fff;
 }
 
-/* Card filter checkboxes */
+/* Resize handle between filter panel and orders list */
+.filter-resize-handle {
+  height: 7px;
+  background: #eee;
+  cursor: ns-resize;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.filter-resize-handle::after {
+  content: '';
+  width: 36px;
+  height: 3px;
+  background: #ccc;
+  border-radius: 2px;
+}
+.filter-resize-handle:hover, .filter-resize-handle.dragging {
+  background: #e0e0e0;
+}
+.filter-resize-handle:hover::after, .filter-resize-handle.dragging::after { background: #f90; }
+
+/* Orders toolbar: hide-$0 toggle + sort buttons + count */
+.orders-toolbar {
+  padding: 4px 14px;
+  flex-shrink: 0;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hide-zero-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #888;
+  cursor: pointer;
+  flex: 1;
+}
+.hide-zero-label input { cursor: pointer; accent-color: #f90; }
+
+/* Filter panel - two columns side by side */
 .filter-row {
   padding: 0 14px 8px;
   flex-shrink: 0;
+  overflow-y: auto;
+  display: flex;
+  gap: 0;
 }
+#address-filter-section {
+  flex: 1;
+  min-width: 0;
+}
+#payment-filter-section {
+  flex: 1;
+  min-width: 0;
+  border-left: 1px solid #e8e8e8;
+  padding-left: 10px;
+  margin-left: 6px;
+}
+.filter-row::-webkit-scrollbar { width: 6px; }
+.filter-row::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
 .filter-all-label {
   display: flex;
   align-items: center;
@@ -227,8 +282,6 @@ body {
   flex-direction: column;
   gap: 3px;
   padding-left: 4px;
-  max-height: 90px;
-  overflow-y: auto;
 }
 .filter-check-item {
   display: flex;
@@ -240,27 +293,52 @@ body {
   padding: 1px 0;
 }
 .filter-check-item input { cursor: pointer; accent-color: #f90; }
+.filter-card-name { color: #999; font-size: 11px; }
 
 .orders-list {
   list-style: none;
   flex: 1;
   overflow-y: auto;
 }
-.orders-list::-webkit-scrollbar { width: 4px; }
-.orders-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
+.orders-list::-webkit-scrollbar { width: 10px; }
+.orders-list::-webkit-scrollbar-thumb { background: #bbb; border-radius: 5px; border: 2px solid #fff; }
+.orders-list::-webkit-scrollbar-thumb:hover { background: #999; }
+.orders-list::-webkit-scrollbar-track { background: #f5f5f5; }
 .order-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 7px 14px;
+  padding: 6px 14px;
   border-top: 1px solid #f0f0f0;
-  gap: 8px;
+  gap: 4px;
 }
 .order-item:first-child { border-top: none; }
+.order-item-sub {
+  background: #fafafa;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  border-top: none;
+}
 .order-date {
   font-size: 12px;
   color: #666;
   white-space: nowrap;
+  min-width: 42px;
+}
+.expand-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 8px;
+  color: #aaa;
+  padding: 0 2px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.expand-btn:hover { color: #f90; }
+.expand-placeholder {
+  display: inline-block;
+  width: 14px;
+  flex-shrink: 0;
 }
 .order-name {
   font-size: 12px;
@@ -270,13 +348,20 @@ body {
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
-  padding: 0 6px;
+  padding: 0 4px;
+}
+.sub-name {
+  color: #777;
+  font-size: 11px;
+  padding-left: 6px;
 }
 .order-amount {
   font-size: 13px;
   font-weight: 600;
   color: #111;
   white-space: nowrap;
+  min-width: 52px;
+  text-align: right;
 }
 .empty-state {
   padding: 16px 14px;
@@ -345,3 +430,11 @@ body {
   color: #aaa;
   text-align: center;
 }
+.wallet-link {
+  font-size: 11px;
+  color: #0066c0;
+  text-decoration: none;
+  text-align: center;
+  margin-top: 2px;
+}
+.wallet-link:hover { text-decoration: underline; color: #c45500; }

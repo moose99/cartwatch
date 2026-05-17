@@ -57,18 +57,34 @@
   <div class="orders-section">
     <div class="orders-header">
       <span class="label">Orders this month</span>
+    </div>
+    <div class="filter-row" id="filter-row" style="display:none">
+      <div id="address-filter-section">
+        <label class="filter-all-label">
+          <input type="checkbox" id="filter-all" checked>
+          <span>All recipients</span>
+        </label>
+        <div id="card-filter-checks" class="card-filter-checks"></div>
+      </div>
+      <div id="payment-filter-section" style="display:none">
+        <label class="filter-all-label">
+          <input type="checkbox" id="filter-payments-all" checked>
+          <span>All payment methods</span>
+        </label>
+        <div id="payment-filter-checks" class="card-filter-checks"></div>
+      </div>
+    </div>
+    <div id="filter-resize-handle" class="filter-resize-handle" style="display:none"></div>
+    <div class="orders-toolbar" id="orders-toolbar">
+      <label class="hide-zero-label">
+        <input type="checkbox" id="hide-zero">
+        <span>Hide $0</span>
+      </label>
       <div class="sort-controls">
         <button id="sort-date" class="sort-btn sort-active">Date ↓</button>
         <button id="sort-amount" class="sort-btn">Amount</button>
       </div>
       <span id="order-count" class="order-count"></span>
-    </div>
-    <div class="filter-row" id="filter-row" style="display:none">
-      <label class="filter-all-label">
-        <input type="checkbox" id="filter-all" checked>
-        <span>All payment methods</span>
-      </label>
-      <div id="card-filter-checks" class="card-filter-checks"></div>
     </div>
     <ul id="orders-list" class="orders-list"></ul>
   </div>

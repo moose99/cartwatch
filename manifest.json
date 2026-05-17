@@ -3,7 +3,7 @@
   "name": "CartWatch",
   "version": "1.0.0",
   "description": "Track your Amazon spending and stay under your monthly budget.",
-  "permissions": ["storage", "tabs"],
+  "permissions": ["storage", "tabs", "scripting"],
   "host_permissions": [
     "https://www.amazon.com/*",
     "https://www.amazon.co.uk/*",
@@ -27,7 +27,13 @@
       "matches": [
         "https://www.amazon.com/gp/your-account/order-history*",
         "https://www.amazon.com/your-orders/orders*",
+        "https://www.amazon.com/your-orders/order-details*",
+        "https://www.amazon.com/gp/your-account/order-details*",
+        "https://www.amazon.com/gp/css/summary/edit.html*",
+        "https://www.amazon.com/gp/css/summary/print.html*",
         "https://www.amazon.com/gp/css/order-history*",
+        "https://www.amazon.com/cpe/yourpayments/wallet*",
+        "https://www.amazon.com/cpe/managepaymentmethods*",
         "https://www.amazon.co.uk/gp/your-account/order-history*",
         "https://www.amazon.co.uk/your-orders/orders*",
         "https://www.amazon.ca/gp/your-account/order-history*",
