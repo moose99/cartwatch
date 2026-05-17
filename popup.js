@@ -52,7 +52,7 @@
   });
 
   chrome.storage.local.get({ orders: {}, budget: 0, lastScan: 0, scanStatus: null }, data => {
-    allOrders = data.orders;
+    allOrders = data.orders || {};
     budget = data.budget;
     document.getElementById('budget-input').value = budget || '';
     // self-heal: clear any "scanning" flag if no scan is actually running in background
@@ -61,12 +61,12 @@
       const finish = () => renderScanProgress(data.scanStatus, data.lastScan);
       if (stale) {
         data.scanStatus = { scanning: false, info: 'Previous scan was interrupted.' };
-        chrome.storage.local.set({ scanStatus: data.scanStatus }, finish);
+        safeSet({ scanStatus: data.scanStatus }, finish);
       } else {
         chrome.runtime.sendMessage({ type: 'isScanActive' }, resp => {
           if (chrome.runtime.lastError || !resp || !resp.active) {
             data.scanStatus = { scanning: false, info: 'Previous scan was interrupted.' };
-            chrome.storage.local.set({ scanStatus: data.scanStatus }, finish);
+            safeSet({ scanStatus: data.scanStatus }, finish);
           } else {
             finish();
           }
@@ -96,22 +96,21 @@
     document.getElementById('month-label').textContent = formatMonthLabel(viewMonth);
     document.getElementById('next-month').disabled = viewMonth >= now;
 
-    renderAddressFilter();
-    renderPaymentFilter();
+    // Single pass over allOrders: compute filter sets and the filtered order list together.
+    const { monthOrders, addressNames, paymentMethods } = computeMonthData(viewMonth);
 
-    const monthOrders = getOrdersForMonth(viewMonth);
-    // subtract any refunded amount (full or partial) from each order's spend
+    renderAddressFilter(addressNames);
+    renderPaymentFilter(paymentMethods);
+
+    // Budget summary
     const spent = monthOrders.reduce((s, o) => s + Math.max(0, o.amount - (o.refundedAmount || 0)), 0);
-
     const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
     const fill = document.getElementById('progress-fill');
     fill.style.width = pct + '%';
     fill.classList.toggle('warn', pct >= 75 && pct < 100);
     fill.classList.toggle('over', spent > budget && budget > 0);
     document.getElementById('progress-pct').textContent = budget > 0 ? Math.round(pct) + '%' : '--';
-
     document.getElementById('spent-amount').textContent = fmt(spent);
-
     const remainingEl = document.getElementById('remaining-amount');
     const remainingLabelEl = document.getElementById('remaining-label');
     if (budget > 0) {
@@ -125,6 +124,30 @@
       remainingLabelEl.textContent = 'remaining';
     }
 
+    renderOrdersList(monthOrders);
+  }
+
+  // Single pass: returns filtered orders for the list plus unfiltered name/payment sets for
+  // the filter panel. Computing everything together avoids iterating allOrders three times.
+  function computeMonthData(ym) {
+    const addressNames = new Set();
+    const paymentMethods = new Set();
+    const monthOrders = [];
+    for (const o of Object.values(allOrders)) {
+      if (!o.date || !o.date.startsWith(ym)) continue;
+      // collect filter options from all orders in the month before applying exclusions
+      if (o.shipTo) addressNames.add(o.shipTo);
+      if (o.paymentMethod) paymentMethods.add(o.paymentMethod);
+      // apply active filters for the visible list
+      if (hideZero && o.amount === 0) continue;
+      if (o.shipTo && excludedAddresses.has(o.shipTo)) continue;
+      if (o.paymentMethod && excludedPayments.has(o.paymentMethod)) continue;
+      monthOrders.push(o);
+    }
+    return { monthOrders, addressNames, paymentMethods };
+  }
+
+  function renderOrdersList(monthOrders) {
     const list = document.getElementById('orders-list');
     const savedScroll = list.scrollTop;
     list.innerHTML = '';
@@ -135,75 +158,120 @@
       li.textContent = 'No orders found for this month.';
       list.appendChild(li);
       document.getElementById('order-count').textContent = '';
-    } else {
-      document.getElementById('order-count').textContent = monthOrders.length;
-      monthOrders.sort((a, b) => {
-        if (sortBy === 'amount') return (a.amount - b.amount) * sortDir;
-        return a.date.localeCompare(b.date) * sortDir;
-      });
-      monthOrders.forEach(o => {
-        const key = o.id || `${o.date}_${o.amount}`;
-        const names = o.productNames && o.productNames.length > 0
-          ? o.productNames
-          : (o.productName ? [o.productName] : ['Unknown order']);
-        const isMulti = names.length > 1;
-        const isExpanded = expandedOrders.has(key);
-
-        const refunded = o.refundedAmount || 0;
-        const isFullRefund = o.refundComplete || (refunded > 0 && refunded >= o.amount);
-        const isPartialRefund = refunded > 0 && !isFullRefund;
-
-        const li = document.createElement('li');
-        li.className = 'order-item';
-        const displayName = isMulti && !isExpanded
-          ? `${names[0]} +${names.length - 1} more`
-          : names[0];
-
-        let refundBadge = '';
-        if (o.cancelled) {
-          refundBadge = '<span class="refund-badge cancelled">CANCELLED</span>';
-        } else if (o.returnStarted) {
-          refundBadge = '<span class="refund-badge return-started">RETURNING</span>';
-        } else if (isFullRefund) {
-          refundBadge = '<span class="refund-badge">REFUNDED</span>';
-        } else if (isPartialRefund) {
-          refundBadge = `<span class="refund-badge partial" title="Partial refund of ${fmt(refunded)}">−${fmt(refunded)}</span>`;
-        }
-
-        li.innerHTML = `
-          <span class="order-date">${formatDate(o.date)}</span>
-          ${isMulti ? `<button class="expand-btn" title="${isExpanded ? 'Collapse' : 'Expand'}">${isExpanded ? '▼' : '▶'}</button>` : '<span class="expand-placeholder"></span>'}
-          ${refundBadge}
-          <span class="order-name" title="${escapeHtml(names[0])}">${escapeHtml(displayName)}</span>
-          <span class="order-amount">${fmt(o.amount)}</span>
-        `;
-
-        if (isMulti) {
-          li.querySelector('.expand-btn').addEventListener('click', () => {
-            if (expandedOrders.has(key)) expandedOrders.delete(key);
-            else expandedOrders.add(key);
-            render();
-          });
-        }
-        list.appendChild(li);
-
-        if (isMulti && isExpanded) {
-          names.slice(1).forEach(name => {
-            const sub = document.createElement('li');
-            sub.className = 'order-item order-item-sub';
-            sub.innerHTML = `
-              <span class="order-date"></span>
-              <span class="expand-placeholder"></span>
-              <span class="order-name sub-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
-              <span class="order-amount"></span>
-            `;
-            list.appendChild(sub);
-          });
-        }
-      });
+      return;
     }
 
+    document.getElementById('order-count').textContent = monthOrders.length;
+    monthOrders.sort((a, b) => {
+      if (sortBy === 'amount') return (a.amount - b.amount) * sortDir;
+      return a.date.localeCompare(b.date) * sortDir;
+    });
+
+    // Build all rows into a fragment to minimize reflows
+    const fragment = document.createDocumentFragment();
+    monthOrders.forEach(o => {
+      const key = o.id || `${o.date}_${o.amount}`;
+      const names = o.productNames?.length > 0 ? o.productNames
+        : o.productName ? [o.productName] : ['Unknown order'];
+      const isMulti = names.length > 1;
+      const isExpanded = expandedOrders.has(key);
+
+      fragment.appendChild(buildOrderRow(o, key, names, isMulti, isExpanded));
+
+      if (isMulti && isExpanded) {
+        names.slice(1).forEach(name => fragment.appendChild(buildSubRow(name)));
+      }
+    });
+    list.appendChild(fragment);
     list.scrollTop = savedScroll;
+  }
+
+  function buildOrderRow(o, key, names, isMulti, isExpanded) {
+    const li = document.createElement('li');
+    li.className = 'order-item';
+
+    const dateEl = document.createElement('span');
+    dateEl.className = 'order-date';
+    dateEl.textContent = formatDate(o.date);
+    li.appendChild(dateEl);
+
+    if (isMulti) {
+      const btn = document.createElement('button');
+      btn.className = 'expand-btn';
+      btn.title = isExpanded ? 'Collapse' : 'Expand';
+      btn.textContent = isExpanded ? '▼' : '▶';
+      btn.addEventListener('click', () => {
+        if (expandedOrders.has(key)) expandedOrders.delete(key);
+        else expandedOrders.add(key);
+        render();
+      });
+      li.appendChild(btn);
+    } else {
+      const ph = document.createElement('span');
+      ph.className = 'expand-placeholder';
+      li.appendChild(ph);
+    }
+
+    const badge = buildBadgeEl(o);
+    if (badge) li.appendChild(badge);
+
+    const displayName = isMulti && !isExpanded ? `${names[0]} +${names.length - 1} more` : names[0];
+    const nameEl = document.createElement('span');
+    nameEl.className = 'order-name';
+    nameEl.title = names[0];
+    nameEl.textContent = displayName;
+    li.appendChild(nameEl);
+
+    const amtEl = document.createElement('span');
+    amtEl.className = 'order-amount';
+    amtEl.textContent = fmt(o.amount);
+    li.appendChild(amtEl);
+
+    return li;
+  }
+
+  function buildSubRow(name) {
+    const sub = document.createElement('li');
+    sub.className = 'order-item order-item-sub';
+
+    const dateEl = document.createElement('span');
+    dateEl.className = 'order-date';
+    sub.appendChild(dateEl);
+
+    const ph = document.createElement('span');
+    ph.className = 'expand-placeholder';
+    sub.appendChild(ph);
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'order-name sub-name';
+    nameEl.title = name;
+    nameEl.textContent = name;
+    sub.appendChild(nameEl);
+
+    const amtEl = document.createElement('span');
+    amtEl.className = 'order-amount';
+    sub.appendChild(amtEl);
+
+    return sub;
+  }
+
+  function buildBadgeEl(o) {
+    const refunded = o.refundedAmount || 0;
+    const isFullRefund = o.refundComplete || (refunded > 0 && refunded >= o.amount);
+    const isPartialRefund = refunded > 0 && !isFullRefund;
+
+    let cls = null, text = null, title = null;
+    if (o.cancelled)          { cls = 'cancelled';     text = 'CANCELLED'; }
+    else if (o.returnStarted) { cls = 'return-started'; text = 'RETURNING'; }
+    else if (isFullRefund)    {                          text = 'REFUNDED'; }
+    else if (isPartialRefund) { cls = 'partial'; text = `−${fmt(refunded)}`; title = `Partial refund of ${fmt(refunded)}`; }
+
+    if (!text) return null;
+    const el = document.createElement('span');
+    el.className = 'refund-badge' + (cls ? ' ' + cls : '');
+    el.textContent = text;
+    if (title) el.title = title;
+    return el;
   }
 
   // Show or hide the overall filter panel depending on whether either sub-section has data.
@@ -223,15 +291,10 @@
     }
   }
 
-  function renderAddressFilter() {
+  function renderAddressFilter(names) {
     const container = document.getElementById('card-filter-checks');
     const filterAllCb = document.getElementById('filter-all');
     const section = document.getElementById('address-filter-section');
-
-    const names = new Set();
-    Object.values(allOrders).forEach(o => {
-      if (o.shipTo && o.date && o.date.startsWith(viewMonth)) names.add(o.shipTo);
-    });
 
     section.style.display = names.size === 0 ? 'none' : '';
 
@@ -266,21 +329,14 @@
     filterAllCb.onchange = () => {
       if (filterAllCb.checked) excludedAddresses.clear();
       else names.forEach(n => excludedAddresses.add(n));
-      renderAddressFilter();
-      renderPaymentFilter();
       render();
     };
   }
 
-  function renderPaymentFilter() {
+  function renderPaymentFilter(methods) {
     const container = document.getElementById('payment-filter-checks');
     const filterAllCb = document.getElementById('filter-payments-all');
     const section = document.getElementById('payment-filter-section');
-
-    const methods = new Set();
-    Object.values(allOrders).forEach(o => {
-      if (o.paymentMethod && o.date && o.date.startsWith(viewMonth)) methods.add(o.paymentMethod);
-    });
 
     section.style.display = methods.size === 0 ? 'none' : '';
 
@@ -315,7 +371,6 @@
     filterAllCb.onchange = () => {
       if (filterAllCb.checked) excludedPayments.clear();
       else methods.forEach(m => excludedPayments.add(m));
-      renderPaymentFilter();
       render();
     };
 
@@ -379,7 +434,7 @@
 
   function startScan() {
     // clear any leftover state so background doesn't think a scan is already in progress
-    chrome.storage.local.set({ scanStatus: { scanning: false } }, () => {
+    safeSet({ scanStatus: { scanning: false } }, () => {
       chrome.runtime.sendMessage({ type: 'startScan', baseUrl: 'https://www.amazon.com', targetMonth: viewMonth });
     });
   }
@@ -387,6 +442,10 @@
   function clearData() {
     if (!confirm('Clear all stored orders and budget? This cannot be undone.')) return;
     chrome.storage.local.clear(() => {
+      if (chrome.runtime.lastError) {
+        console.error('[CartWatch] clear failed:', chrome.runtime.lastError.message);
+        return;
+      }
       allOrders = {};
       budget = 0;
       excludedAddresses = new Set();
@@ -399,20 +458,18 @@
 
   function onBudgetChange(e) {
     budget = parseFloat(e.target.value) || 0;
-    chrome.storage.local.set({ budget });
+    safeSet({ budget });
     render();
   }
 
   // --- Helpers ---
 
-  function getOrdersForMonth(ym) {
-    return Object.values(allOrders).filter(o => {
-      if (!o.date || !o.date.startsWith(ym)) return false;
-      if (hideZero && o.amount === 0) return false;
-      // only filter orders that have a known value; orders without one are always shown
-      if (o.shipTo && excludedAddresses.has(o.shipTo)) return false;
-      if (o.paymentMethod && excludedPayments.has(o.paymentMethod)) return false;
-      return true;
+  function safeSet(data, callback) {
+    chrome.storage.local.set(data, () => {
+      if (chrome.runtime.lastError) {
+        console.error('[CartWatch] storage write failed:', chrome.runtime.lastError.message);
+      }
+      if (callback) callback();
     });
   }
 
@@ -443,10 +500,6 @@
 
   function fmt(n) {
     return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  }
-
-  function truncate(s, len) {
-    return s.length > len ? s.slice(0, len) + '...' : s;
   }
 
   function escapeHtml(s) {

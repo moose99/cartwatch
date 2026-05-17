@@ -11,6 +11,19 @@ const BASE_URL = 'https://www.amazon.com';
 const PAGE_SIZE = 10;
 let scanState = null;
 
+// On every service worker (re)start, close any scan tab left open by a previous
+// instance that was killed mid-scan. The tab id is persisted to storage so it
+// survives the service worker being terminated.
+chrome.storage.local.get({ scanTabId: null, scanStatus: null }, ({ scanTabId, scanStatus }) => {
+  if (scanTabId === null) return;
+  chrome.tabs.remove(scanTabId, () => { void chrome.runtime.lastError; }); // suppress "no such tab"
+  const update = { scanTabId: null };
+  if (scanStatus?.scanning) {
+    update.scanStatus = { scanning: false, info: 'Previous scan was interrupted.' };
+  }
+  chrome.storage.local.set(update, () => { void chrome.runtime.lastError; });
+});
+
 // --- CartWatch window management ---
 
 let watchWindowId = null;
@@ -45,9 +58,11 @@ chrome.windows.onRemoved.addListener(id => {
 });
 
 chrome.windows.onBoundsChanged.addListener(win => {
-  if (win.id === watchWindowId) {
-    chrome.storage.local.set({ winBounds: { width: win.width, height: win.height, left: win.left, top: win.top } });
-  }
+  if (win.id !== watchWindowId) return;
+  chrome.storage.local.set(
+    { winBounds: { width: win.width, height: win.height, left: win.left, top: win.top } },
+    () => { void chrome.runtime.lastError; }
+  );
 });
 
 function isStale(s) {
@@ -67,6 +82,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
+// Top-level listener (registered once) handles the user closing the scan tab.
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (!scanState || tabId !== scanState.tabId) return;
+  chrome.storage.local.set(
+    { scanStatus: { scanning: false, scanned: scanState.scanned }, scanTabId: null },
+    () => { void chrome.runtime.lastError; }
+  );
+  scanState = null;
+});
+
 function buildUrl(baseUrl, year, startIndex) {
   return `${baseUrl}/your-orders/orders?timeFilter=year-${year}&startIndex=${startIndex}`;
 }
@@ -80,12 +105,19 @@ async function beginScan(baseUrl, targetMonth) {
   const startedAt = Date.now();
   const [year] = targetMonth.split('-').map(Number);
 
+  // Only load this month's orders into memory rather than the full history.
+  // collectStep does a read-modify-write when saving, so other months are preserved.
+  const stored = {};
+  for (const [k, v] of Object.entries(data.orders)) {
+    if (v.date?.startsWith(targetMonth)) stored[k] = v;
+  }
+
   scanState = {
     baseUrl,
     year,
     targetMonth,
     startedAt,
-    stored: data.orders,
+    stored,
     scanned: 0,
     monthFound: 0,
     total: null,
@@ -112,13 +144,9 @@ async function beginScan(baseUrl, targetMonth) {
   // window: it appears in the tab strip but doesn't take focus.
   const tab = await chrome.tabs.create({ url, active: false });
   scanState.tabId = tab.id;
-
-  chrome.tabs.onRemoved.addListener(function onRemoved(tabId) {
-    if (tabId !== scanState?.tabId) return;
-    chrome.tabs.onRemoved.removeListener(onRemoved);
-    chrome.storage.local.set({ scanStatus: { scanning: false, scanned: scanState.scanned } });
-    scanState = null;
-  });
+  // Persist tab id before the tab loads so the orphan-cleanup on next SW startup can
+  // close it if this service worker instance is terminated before the scan finishes.
+  await chrome.storage.local.set({ scanTabId: tab.id });
 }
 
 async function navigateToStartIndex(startIndex) {
@@ -128,8 +156,6 @@ async function navigateToStartIndex(startIndex) {
 }
 
 async function handlePageScraped(orders, totalCount) {
-  const { currentStartIndex } = scanState;
-
   // Capture year total from the first page
   if (totalCount && scanState.total === null) {
     scanState.total = totalCount;
@@ -139,22 +165,23 @@ async function handlePageScraped(orders, totalCount) {
   }
 
   scanState.scanned += orders.length;
-  await chrome.storage.local.set({
-    scanStatus: {
-      scanning: true,
-      scanned: scanState.scanned,
-      monthFound: scanState.monthFound,
-      total: scanState.total,
-      phase: 'orders',
-      startedAt: scanState.startedAt,
-    }
-  });
 
   if (orders.length === 0) {
     return finalizeScan();
   }
 
   if (scanState.phase === 'discover') {
+    // Update progress during discover phase (no order writes yet)
+    await chrome.storage.local.set({
+      scanStatus: {
+        scanning: true,
+        scanned: scanState.scanned,
+        monthFound: scanState.monthFound,
+        total: scanState.total,
+        phase: 'orders',
+        startedAt: scanState.startedAt,
+      }
+    });
     return discoverStep(orders);
   }
   return collectStep(orders);
@@ -214,8 +241,13 @@ async function collectStep(orders) {
 
   scanState.monthFound += targetOrders.length;
 
-  await chrome.storage.local.set({ orders: stored, lastScan: Date.now() });
+  // Read the full order history, merge this month's updates, then write everything
+  // in a single call. scanState.stored holds only the target month so we must
+  // merge rather than replace.
+  const { orders: allOrders } = await chrome.storage.local.get({ orders: {} });
   await chrome.storage.local.set({
+    orders: { ...allOrders, ...stored },
+    lastScan: Date.now(),
     scanStatus: {
       scanning: true,
       scanned: scanState.scanned,
@@ -223,7 +255,7 @@ async function collectStep(orders) {
       total: scanState.total,
       phase: 'orders',
       startedAt: scanState.startedAt,
-    }
+    },
   });
 
   if (passedMonth) {
@@ -246,6 +278,6 @@ async function finalizeScan() {
   const { scanned } = scanState;
   const finalStatus = { scanning: false, scanned, monthFound, targetMonth };
   if (monthFound === 0) finalStatus.info = `No orders found for ${targetMonth}.`;
-  await chrome.storage.local.set({ scanStatus: finalStatus });
+  await chrome.storage.local.set({ scanStatus: finalStatus, scanTabId: null });
   scanState = null;
 }

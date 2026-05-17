@@ -104,8 +104,19 @@
       }
     }
 
+    // pickup/in-store orders (e.g. Whole Foods) have no product title text;
+    // use the "Purchased at X" store heading as the order name.
+    if (!productName) {
+      const m = (card.innerText || '').match(/Purchased at ([^\n\r]+)/i);
+      if (m) {
+        productName = m[1].trim();
+        productNames = [productName];
+      }
+    }
+
     let dateText = null;
     let totalText = null;
+    let pickupLocation = null;
     card.querySelectorAll('li.order-header__header-list-item').forEach(item => {
       const allRows = item.querySelectorAll('.a-row');
       if (allRows.length < 2) return;
@@ -113,6 +124,7 @@
       const value = allRows[1].textContent.trim();
       if (!dateText && label.includes('order placed')) dateText = value;
       if (!totalText && label === 'total') totalText = value;
+      if (!pickupLocation && label.includes('pickup at')) pickupLocation = value;
     });
 
     // Strategy A: sum explicit "Refund... $X.XX" amounts (handles partial refunds)
@@ -163,15 +175,21 @@
     }
 
     // shipping recipient name - "Delivered to John Smith", "Ships to Jane Doe", etc.
+    // For pickup orders, use the pickup location with a "(pickup)" suffix.
     let shipTo = null;
-    const recipientLink = card.querySelector('.recipient a, [class*="recipient"] a');
-    if (recipientLink) {
-      shipTo = recipientLink.textContent.trim() || null;
-    }
-    if (!shipTo) {
-      const ct = (card.innerText || '').replace(/[ \t]+/g, ' ');
-      const sm = ct.match(/(?:Deliver(?:ed|ing|s)?\s+to|Ship(?:ped|ping)?\s+to)[:\s]+([A-Z][A-Za-z\s.'`\-]{2,50}?)(?:\n|$)/im);
-      if (sm) shipTo = sm[1].trim() || null;
+    if (pickupLocation) {
+      const cityName = pickupLocation.split(/[\r\n,\d]/)[0].trim();
+      shipTo = `${cityName || pickupLocation} (pickup)`;
+    } else {
+      const recipientLink = card.querySelector('.recipient a, [class*="recipient"] a');
+      if (recipientLink) {
+        shipTo = recipientLink.textContent.trim() || null;
+      }
+      if (!shipTo) {
+        const ct = (card.innerText || '').replace(/[ \t]+/g, ' ');
+        const sm = ct.match(/(?:Deliver(?:ed|ing|s)?\s+to|Ship(?:ped|ping)?\s+to)[:\s]+([A-Z][A-Za-z\s.'`\-]{2,50}?)(?:\n|$)/im);
+        if (sm) shipTo = sm[1].trim() || null;
+      }
     }
 
     if (!dateText) {
