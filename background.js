@@ -65,58 +65,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ active: scanState !== null });
     return true;
   }
-  if (msg.type === 'walletScraped') {
-    handleWalletScraped(msg.cards).catch(console.error);
-  }
 });
-
-async function handleWalletScraped(cards) {
-  if (!Array.isArray(cards) || cards.length === 0) {
-    console.log('[ABT] Wallet message had no cards; nothing to store.');
-    return;
-  }
-  const { walletCards = [] } = await chrome.storage.local.get({ walletCards: [] });
-  // index existing by last4 so we update in-place
-  const byLast4 = new Map(walletCards.map(c => [c.last4, c]));
-  cards.forEach(c => byLast4.set(c.last4, { ...byLast4.get(c.last4), ...c }));
-  const merged = Array.from(byLast4.values());
-  await chrome.storage.local.set({ walletCards: merged, walletScannedAt: Date.now() });
-  console.log('[ABT] Wallet stored:', merged.length, 'cards total');
-
-  // backfill any stored orders whose paymentMethod is partial (no name) using wallet data
-  const { orders = {} } = await chrome.storage.local.get({ orders: {} });
-  let updated = 0;
-  Object.values(orders).forEach(o => {
-    if (!o.paymentMethod) return;
-    const m = o.paymentMethod.match(/ending in (\d{4})/i);
-    if (!m) return;
-    const card = byLast4.get(m[1]);
-    if (!card || !card.name) return;
-    if (/ · .+/.test(o.paymentMethod)) return; // already has a name
-    o.paymentMethod = `${card.cardType || o.paymentMethod.split(' ending')[0]} ending in ${m[1]} · ${card.name}`;
-    updated++;
-  });
-  if (updated > 0) {
-    await chrome.storage.local.set({ orders });
-    console.log('[ABT] Backfilled', updated, 'orders with cardholder name from wallet');
-  }
-}
 
 function buildUrl(baseUrl, year, startIndex) {
   return `${baseUrl}/your-orders/orders?timeFilter=year-${year}&startIndex=${startIndex}`;
 }
 
 async function beginScan(baseUrl, targetMonth) {
-  console.log('[ABT] beginScan called - targetMonth:', targetMonth, 'baseUrl:', baseUrl);
   const data = await chrome.storage.local.get({ scanStatus: null, orders: {} });
   if (data.scanStatus && data.scanStatus.scanning && !isStale(data.scanStatus)) {
-    console.log('[ABT] Scan already in progress, aborting');
     return;
   }
 
   const startedAt = Date.now();
   const [year] = targetMonth.split('-').map(Number);
-  console.log('[ABT] Scanning year:', year, 'for month:', targetMonth, '(binary search)');
 
   scanState = {
     baseUrl,
@@ -143,11 +105,13 @@ async function beginScan(baseUrl, targetMonth) {
   });
 
   const url = buildUrl(baseUrl, year, 0);
-  // Always create as a background tab. active:false means it appears in the
-  // user's tab bar but stays unfocused; their current tab and window keep focus.
+  // Chrome MV3 doesn't allow truly hidden tabs:
+  //   - tabs.create({ windowId: popupWindowId }) is silently redirected away from popup windows
+  //   - windows.create() creates a separate taskbar entry
+  // The least intrusive option is a background tab in the user's main browser
+  // window: it appears in the tab strip but doesn't take focus.
   const tab = await chrome.tabs.create({ url, active: false });
   scanState.tabId = tab.id;
-  console.log('[ABT] Scan tab created, id:', tab.id, 'windowId:', tab.windowId, 'active:', tab.active);
 
   chrome.tabs.onRemoved.addListener(function onRemoved(tabId) {
     if (tabId !== scanState?.tabId) return;
@@ -160,12 +124,11 @@ async function beginScan(baseUrl, targetMonth) {
 async function navigateToStartIndex(startIndex) {
   scanState.currentStartIndex = startIndex;
   const url = buildUrl(scanState.baseUrl, scanState.year, startIndex);
-  console.log('[ABT] Navigate -> startIndex', startIndex, '(phase:', scanState.phase + ')');
   await chrome.tabs.update(scanState.tabId, { url });
 }
 
 async function handlePageScraped(orders, totalCount) {
-  const { targetMonth, currentStartIndex } = scanState;
+  const { currentStartIndex } = scanState;
 
   // Capture year total from the first page
   if (totalCount && scanState.total === null) {
@@ -173,15 +136,8 @@ async function handlePageScraped(orders, totalCount) {
     const lastPage = Math.max(0, Math.floor((totalCount - 1) / PAGE_SIZE) * PAGE_SIZE);
     scanState.lastPageIndex = lastPage;
     scanState.hi = lastPage;
-    console.log('[ABT] Year total:', totalCount, 'lastPageIndex:', lastPage);
   }
 
-  console.log('[ABT] Page received - phase:', scanState.phase, 'startIndex:', currentStartIndex, 'orders:', orders.length, 'lo:', scanState.lo, 'hi:', scanState.hi);
-  if (orders.length > 0) {
-    console.log('[ABT] Dates:', orders.map(o => o.date));
-  }
-
-  // Update progress (count every order we examine, not just target-month matches)
   scanState.scanned += orders.length;
   await chrome.storage.local.set({
     scanStatus: {
@@ -195,7 +151,6 @@ async function handlePageScraped(orders, totalCount) {
   });
 
   if (orders.length === 0) {
-    console.warn('[ABT] Empty page at startIndex', currentStartIndex, '- ending order scan.');
     return finalizeScan();
   }
 
@@ -210,9 +165,7 @@ async function handlePageScraped(orders, totalCount) {
 async function discoverStep(orders) {
   scanState.probes++;
   const { targetMonth, currentStartIndex } = scanState;
-  const firstMonth = orders[0].date?.slice(0, 7);
   const lastMonth = orders[orders.length - 1].date?.slice(0, 7);
-  console.log('[ABT discover] probe', scanState.probes, 'firstMonth:', firstMonth, 'lastMonth:', lastMonth);
 
   if (lastMonth <= targetMonth) {
     // page contains target-or-older orders; boundary is here or earlier
@@ -223,7 +176,6 @@ async function discoverStep(orders) {
   }
 
   if (scanState.lo >= scanState.hi) {
-    console.log('[ABT discover] Converged at startIndex', scanState.hi, 'after', scanState.probes, 'probes');
     scanState.phase = 'collect';
 
     if (currentStartIndex === scanState.hi) {
@@ -245,7 +197,6 @@ async function collectStep(orders) {
   const { stored, targetMonth } = scanState;
   const targetOrders = orders.filter(o => o.date && o.date.startsWith(targetMonth));
   const passedMonth = orders.some(o => o.date && o.date.slice(0, 7) < targetMonth);
-  console.log('[ABT collect] startIndex:', scanState.currentStartIndex, 'targetOrders:', targetOrders.length, 'passedMonth:', passedMonth);
 
   targetOrders.forEach(o => {
     const key = o.id || `${o.date}_${o.amount}`;
@@ -256,6 +207,8 @@ async function collectStep(orders) {
       productNames: o.productNames || existing.productNames || null,
       shipTo: o.shipTo || existing.shipTo || null,
       paymentMethod: o.paymentMethod || existing.paymentMethod || null,
+      // refund amount: prefer the latest scan (refunds can be issued after the order)
+      refundedAmount: o.refundedAmount !== undefined ? o.refundedAmount : (existing.refundedAmount || 0),
     };
   });
 
@@ -274,13 +227,11 @@ async function collectStep(orders) {
   });
 
   if (passedMonth) {
-    console.log('[ABT] Order scan complete -', scanState.monthFound, 'matched after', scanState.probes, 'discover probes.');
     return finalizeScan();
   }
 
   const nextIndex = scanState.currentStartIndex + PAGE_SIZE;
   if (scanState.lastPageIndex !== null && nextIndex > scanState.lastPageIndex) {
-    console.log('[ABT] Reached last page of year; scan complete.');
     return finalizeScan();
   }
   return navigateToStartIndex(nextIndex);
@@ -289,16 +240,12 @@ async function collectStep(orders) {
 async function finalizeScan() {
   const tabId = scanState.tabId;
   scanState.tabId = null;
-  if (tabId) {
-    try { await chrome.tabs.remove(tabId); } catch (e) {}
-  }
+  if (tabId) { try { await chrome.tabs.remove(tabId); } catch (e) {} }
   const monthFound = scanState.monthFound || 0;
   const targetMonth = scanState.targetMonth;
   const { scanned } = scanState;
   const finalStatus = { scanning: false, scanned, monthFound, targetMonth };
   if (monthFound === 0) finalStatus.info = `No orders found for ${targetMonth}.`;
-  console.log('[ABT] Scan finished:', finalStatus);
   await chrome.storage.local.set({ scanStatus: finalStatus });
   scanState = null;
 }
-

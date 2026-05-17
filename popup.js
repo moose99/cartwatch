@@ -14,6 +14,7 @@
   // --- Init ---
 
   document.getElementById('scan-btn').addEventListener('click', startScan);
+  document.getElementById('clear-btn').addEventListener('click', clearData);
   document.getElementById('prev-month').addEventListener('click', () => { viewMonth = offsetMonth(viewMonth, -1); render(); });
   document.getElementById('next-month').addEventListener('click', () => { viewMonth = offsetMonth(viewMonth, +1); render(); });
   document.getElementById('budget-input').addEventListener('change', onBudgetChange);
@@ -80,7 +81,7 @@
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
-    if (changes.orders) { allOrders = changes.orders.newValue; }
+    if (changes.orders) { allOrders = changes.orders.newValue || {}; }
     if (changes.budget) { budget = changes.budget.newValue; document.getElementById('budget-input').value = budget || ''; }
     if (changes.scanStatus || changes.lastScan) {
       chrome.storage.local.get({ scanStatus: null, lastScan: 0 }, d => renderScanProgress(d.scanStatus, d.lastScan));
@@ -99,7 +100,8 @@
     renderPaymentFilter();
 
     const monthOrders = getOrdersForMonth(viewMonth);
-    const spent = monthOrders.reduce((s, o) => s + o.amount, 0);
+    // subtract any refunded amount (full or partial) from each order's spend
+    const spent = monthOrders.reduce((s, o) => s + Math.max(0, o.amount - (o.refundedAmount || 0)), 0);
 
     const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
     const fill = document.getElementById('progress-fill');
@@ -147,15 +149,31 @@
         const isMulti = names.length > 1;
         const isExpanded = expandedOrders.has(key);
 
+        const refunded = o.refundedAmount || 0;
+        const isFullRefund = o.refundComplete || (refunded > 0 && refunded >= o.amount);
+        const isPartialRefund = refunded > 0 && !isFullRefund;
+
         const li = document.createElement('li');
         li.className = 'order-item';
         const displayName = isMulti && !isExpanded
           ? `${names[0]} +${names.length - 1} more`
           : names[0];
 
+        let refundBadge = '';
+        if (o.cancelled) {
+          refundBadge = '<span class="refund-badge cancelled">CANCELLED</span>';
+        } else if (o.returnStarted) {
+          refundBadge = '<span class="refund-badge return-started">RETURNING</span>';
+        } else if (isFullRefund) {
+          refundBadge = '<span class="refund-badge">REFUNDED</span>';
+        } else if (isPartialRefund) {
+          refundBadge = `<span class="refund-badge partial" title="Partial refund of ${fmt(refunded)}">−${fmt(refunded)}</span>`;
+        }
+
         li.innerHTML = `
           <span class="order-date">${formatDate(o.date)}</span>
           ${isMulti ? `<button class="expand-btn" title="${isExpanded ? 'Collapse' : 'Expand'}">${isExpanded ? '▼' : '▶'}</button>` : '<span class="expand-placeholder"></span>'}
+          ${refundBadge}
           <span class="order-name" title="${escapeHtml(names[0])}">${escapeHtml(displayName)}</span>
           <span class="order-amount">${fmt(o.amount)}</span>
         `;
@@ -330,21 +348,9 @@
     if (scanning) {
       barWrap.style.display = '';
       if (status.phase === 'orders') {
-        if (status.total > 0) {
-          barFill.classList.remove('indeterminate');
-          const pct = Math.min(Math.round((status.scanned / status.total) * 100), 99);
-          barFill.style.width = pct + '%';
-          progressEl.textContent = `Scanned ${status.scanned}...`;
-        } else {
-          barFill.classList.add('indeterminate');
-          barFill.style.width = '';
-          progressEl.textContent = `Scanning... ${status.monthFound || 0} found`;
-        }
-      } else if (status.phase === 'details') {
-        barFill.classList.remove('indeterminate');
-        const pct = status.detailTotal > 0 ? Math.round((status.detailDone / status.detailTotal) * 100) : 0;
-        barFill.style.width = pct + '%';
-        progressEl.textContent = `Getting payment info... ${status.detailDone || 0}/${status.detailTotal || 0}`;
+        barFill.classList.add('indeterminate');
+        barFill.style.width = '';
+        progressEl.textContent = `Scanning... ${status.monthFound || 0} found`;
       }
       progressEl.style.display = '';
       lastScanEl.textContent = '';
@@ -375,6 +381,19 @@
     // clear any leftover state so background doesn't think a scan is already in progress
     chrome.storage.local.set({ scanStatus: { scanning: false } }, () => {
       chrome.runtime.sendMessage({ type: 'startScan', baseUrl: 'https://www.amazon.com', targetMonth: viewMonth });
+    });
+  }
+
+  function clearData() {
+    if (!confirm('Clear all stored orders and budget? This cannot be undone.')) return;
+    chrome.storage.local.clear(() => {
+      allOrders = {};
+      budget = 0;
+      excludedAddresses = new Set();
+      excludedPayments = new Set();
+      document.getElementById('budget-input').value = '';
+      renderScanProgress(null, 0);
+      render();
     });
   }
 
