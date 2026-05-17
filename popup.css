@@ -460,3 +460,16 @@ body {
   transition: border-color .15s, color .15s;
 }
 .clear-btn:hover { border-color: #cc2200; color: #cc2200; }
+.donate-btn {
+  display: block;
+  width: 100%;
+  padding: 6px 0;
+  text-align: center;
+  font-size: 11px;
+  color: #888;
+  text-decoration: none;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  transition: border-color .15s, color .15s;
+}
+.donate-btn:hover { border-color: #f90; color: #e88400; }
