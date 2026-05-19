@@ -8,11 +8,8 @@
     "https://www.amazon.com/*",
     "https://www.amazon.co.uk/*",
     "https://www.amazon.ca/*",
-    "https://www.amazon.de/*",
-    "https://www.amazon.fr/*",
-    "https://www.amazon.co.jp/*",
     "https://www.amazon.com.au/*",
-    "https://www.amazon.com.mx/*"
+    "https://www.amazon.in/*"
   ],
   "action": {
     "default_title": "CartWatch",
@@ -32,8 +29,10 @@
         "https://www.amazon.co.uk/your-orders/orders*",
         "https://www.amazon.ca/gp/your-account/order-history*",
         "https://www.amazon.ca/your-orders/orders*",
-        "https://www.amazon.de/gp/your-account/order-history*",
-        "https://www.amazon.fr/gp/your-account/order-history*"
+        "https://www.amazon.com.au/gp/your-account/order-history*",
+        "https://www.amazon.com.au/your-orders/orders*",
+        "https://www.amazon.in/gp/your-account/order-history*",
+        "https://www.amazon.in/your-orders/orders*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"

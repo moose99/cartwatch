@@ -9,7 +9,9 @@
 
 const BASE_URL = 'https://www.amazon.com';
 const PAGE_SIZE = 10;
+const PAGE_TIMEOUT_MS = 30000; // max wait for a page to scrape before aborting
 let scanState = null;
+let pageTimer = null;
 
 // On every service worker (re)start, close any scan tab left open by a previous
 // instance that was killed mid-scan. The tab id is persisted to storage so it
@@ -92,6 +94,24 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   scanState = null;
 });
 
+function armPageTimer() {
+  clearPageTimer();
+  pageTimer = setTimeout(async () => {
+    if (!scanState) return;
+    await chrome.storage.local.set({
+      scanStatus: { scanning: false, info: 'Scan timed out. Make sure you are logged in to Amazon.' },
+      scanTabId: null,
+    }, () => { void chrome.runtime.lastError; });
+    const tabId = scanState.tabId;
+    scanState = null;
+    if (tabId) { try { await chrome.tabs.remove(tabId); } catch (e) {} }
+  }, PAGE_TIMEOUT_MS);
+}
+
+function clearPageTimer() {
+  if (pageTimer) { clearTimeout(pageTimer); pageTimer = null; }
+}
+
 function buildUrl(baseUrl, year, startIndex) {
   return `${baseUrl}/your-orders/orders?timeFilter=year-${year}&startIndex=${startIndex}`;
 }
@@ -147,15 +167,18 @@ async function beginScan(baseUrl, targetMonth) {
   // Persist tab id before the tab loads so the orphan-cleanup on next SW startup can
   // close it if this service worker instance is terminated before the scan finishes.
   await chrome.storage.local.set({ scanTabId: tab.id });
+  armPageTimer();
 }
 
 async function navigateToStartIndex(startIndex) {
   scanState.currentStartIndex = startIndex;
   const url = buildUrl(scanState.baseUrl, scanState.year, startIndex);
   await chrome.tabs.update(scanState.tabId, { url });
+  armPageTimer();
 }
 
 async function handlePageScraped(orders, totalCount) {
+  clearPageTimer();
   // Capture year total from the first page
   if (totalCount && scanState.total === null) {
     scanState.total = totalCount;
@@ -270,6 +293,7 @@ async function collectStep(orders) {
 }
 
 async function finalizeScan() {
+  clearPageTimer();
   const tabId = scanState.tabId;
   scanState.tabId = null;
   if (tabId) { try { await chrome.tabs.remove(tabId); } catch (e) {} }

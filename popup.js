@@ -1,9 +1,19 @@
 // Popup script: reads stored orders and budget from chrome.storage.local and renders the UI.
 
 (function () {
+  const ORIGIN_META = {
+    'https://www.amazon.com':    { symbol: '$',  label: 'USD' },
+    'https://www.amazon.co.uk':  { symbol: '£',  label: 'GBP' },
+    'https://www.amazon.ca':     { symbol: '$',  label: 'CAD' },
+    'https://www.amazon.com.au': { symbol: '$',  label: 'AUD' },
+    'https://www.amazon.in':     { symbol: '₹',  label: 'INR' },
+  };
+  const SUPPORTED_ORIGINS = Object.keys(ORIGIN_META);
+
   let viewMonth = currentYearMonth();
   let allOrders = {};
   let budget = 0;
+  let currencySymbol = '$';
   let excludedAddresses = new Set(); // ship-to names the user has unchecked
   let excludedPayments = new Set();  // payment methods the user has unchecked
   let sortBy = 'date';           // 'date' | 'amount'
@@ -51,9 +61,10 @@
     render();
   });
 
-  chrome.storage.local.get({ orders: {}, budget: 0, lastScan: 0, scanStatus: null }, data => {
+  chrome.storage.local.get({ orders: {}, budget: 0, lastScan: 0, scanStatus: null, amazonOrigin: null }, data => {
     allOrders = data.orders || {};
     budget = data.budget;
+    if (data.amazonOrigin && ORIGIN_META[data.amazonOrigin]) setCurrency(data.amazonOrigin);
     document.getElementById('budget-input').value = budget || '';
     // self-heal: clear any "scanning" flag if no scan is actually running in background
     if (data.scanStatus && data.scanStatus.scanning) {
@@ -83,6 +94,10 @@
     if (area !== 'local') return;
     if (changes.orders) { allOrders = changes.orders.newValue || {}; }
     if (changes.budget) { budget = changes.budget.newValue; document.getElementById('budget-input').value = budget || ''; }
+    if (changes.amazonOrigin) {
+      const o = changes.amazonOrigin.newValue;
+      if (o && ORIGIN_META[o]) setCurrency(o);
+    }
     if (changes.scanStatus || changes.lastScan) {
       chrome.storage.local.get({ scanStatus: null, lastScan: 0 }, d => renderScanProgress(d.scanStatus, d.lastScan));
     }
@@ -432,10 +447,29 @@
 
   // --- Actions ---
 
-  function startScan() {
-    // clear any leftover state so background doesn't think a scan is already in progress
-    safeSet({ scanStatus: { scanning: false } }, () => {
-      chrome.runtime.sendMessage({ type: 'startScan', baseUrl: 'https://www.amazon.com', targetMonth: viewMonth });
+  async function startScan() {
+    // detect which Amazon domain the user has open; warn if unsupported; fall back to amazon.com
+    let baseUrl = 'https://www.amazon.com';
+    try {
+      const tabs = await chrome.tabs.query({});
+      const amazonTabs = tabs.filter(t => t.url && /https:\/\/www\.amazon\./i.test(t.url));
+      const supportedTab = amazonTabs.find(t => SUPPORTED_ORIGINS.some(o => t.url.startsWith(o + '/')));
+      if (supportedTab) {
+        const origin = SUPPORTED_ORIGINS.find(o => supportedTab.url.startsWith(o + '/'));
+        if (origin) baseUrl = origin;
+      } else if (amazonTabs.length > 0) {
+        // user has Amazon open but it's an unsupported region
+        const domain = new URL(amazonTabs[0].url).hostname;
+        renderScanProgress({
+          scanning: false,
+          info: `${domain} is not supported yet. Supported: amazon.com, .co.uk, .ca, .com.au, .in`
+        }, 0);
+        return;
+      }
+    } catch (e) { /* tabs query failed, use default */ }
+
+    safeSet({ scanStatus: { scanning: false }, amazonOrigin: baseUrl }, () => {
+      chrome.runtime.sendMessage({ type: 'startScan', baseUrl, targetMonth: viewMonth });
     });
   }
 
@@ -498,8 +532,13 @@
     return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 
+  function setCurrency(origin) {
+    currencySymbol = ORIGIN_META[origin]?.symbol || '$';
+    document.getElementById('currency-symbol').textContent = currencySymbol;
+  }
+
   function fmt(n) {
-    return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return currencySymbol + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
   function escapeHtml(s) {
