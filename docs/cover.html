@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1600px; height: 400px; overflow: hidden; background: #1a2530; }
+  .banner {
+    width: 1600px;
+    height: 400px;
+    background: linear-gradient(120deg, #1a2530 0%, #232f3e 60%, #1e2d3d 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Subtle grid */
+  .banner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,153,0,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,153,0,0.04) 1px, transparent 1px);
+    background-size: 80px 80px;
+  }
+
+  svg.pattern {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* CartWatch name - bottom right, subtle */
+  .wordmark {
+    position: absolute;
+    bottom: 24px;
+    right: 36px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: -0.02em;
+  }
+  .wordmark span { color: rgba(255,153,0,0.35); }
+</style>
+</head>
+<body>
+<div class="banner">
+
+  <!-- Abstract overlapping cart outlines -->
+  <svg class="pattern" viewBox="0 0 1600 400" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <!-- Single cart path, reused at different sizes/positions -->
+      <!-- Cart: handle line + basket + two wheels -->
+      <g id="cart">
+        <polyline points="0,0 14,0 20,40 52,40 56,16 22,16" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="28" cy="48" r="5" fill="none" stroke-width="3"/>
+        <circle cx="46" cy="48" r="5" fill="none" stroke-width="3"/>
+      </g>
+    </defs>
+
+    <!-- Large ghost carts - back layer -->
+    <use href="#cart" transform="translate(80,60) scale(5.5)"   stroke="rgba(255,153,0,0.06)"/>
+    <use href="#cart" transform="translate(460,20) scale(7)"    stroke="rgba(255,255,255,0.04)"/>
+    <use href="#cart" transform="translate(820,80) scale(4.5)"  stroke="rgba(255,153,0,0.05)"/>
+    <use href="#cart" transform="translate(1150,10) scale(6.5)" stroke="rgba(255,255,255,0.035)"/>
+    <use href="#cart" transform="translate(1380,100) scale(4)"  stroke="rgba(255,153,0,0.06)"/>
+
+    <!-- Mid layer -->
+    <use href="#cart" transform="translate(200,180) scale(3.5)" stroke="rgba(255,153,0,0.09)"/>
+    <use href="#cart" transform="translate(550,160) scale(5)"   stroke="rgba(255,255,255,0.055)"/>
+    <use href="#cart" transform="translate(900,150) scale(3.8)" stroke="rgba(255,153,0,0.08)"/>
+    <use href="#cart" transform="translate(1250,170) scale(4.5)"stroke="rgba(255,255,255,0.045)"/>
+
+    <!-- Bottom layer -->
+    <use href="#cart" transform="translate(50,270) scale(4)"    stroke="rgba(255,255,255,0.05)"/>
+    <use href="#cart" transform="translate(340,250) scale(3)"   stroke="rgba(255,153,0,0.07)"/>
+    <use href="#cart" transform="translate(680,240) scale(5.5)" stroke="rgba(255,255,255,0.04)"/>
+    <use href="#cart" transform="translate(1050,260) scale(3.5)"stroke="rgba(255,153,0,0.08)"/>
+    <use href="#cart" transform="translate(1380,240) scale(4.5)"stroke="rgba(255,255,255,0.05)"/>
+
+    <!-- Small accent carts -->
+    <use href="#cart" transform="translate(320,80) scale(2)"    stroke="rgba(255,153,0,0.12)"/>
+    <use href="#cart" transform="translate(760,30) scale(2.5)"  stroke="rgba(255,255,255,0.08)"/>
+    <use href="#cart" transform="translate(1100,200) scale(2)"  stroke="rgba(255,153,0,0.1)"/>
+    <use href="#cart" transform="translate(1500,300) scale(2.5)"stroke="rgba(255,255,255,0.07)"/>
+    <use href="#cart" transform="translate(150,330) scale(2)"   stroke="rgba(255,153,0,0.09)"/>
+    <use href="#cart" transform="translate(620,310) scale(1.8)" stroke="rgba(255,153,0,0.11)"/>
+    <use href="#cart" transform="translate(980,330) scale(2.2)" stroke="rgba(255,255,255,0.07)"/>
+
+    <!-- Orange accent glow on a couple of carts -->
+    <use href="#cart" transform="translate(200,180) scale(3.5)" stroke="rgba(255,153,0,0.18)" filter="url(#glow)"/>
+    <use href="#cart" transform="translate(1050,260) scale(3.5)"stroke="rgba(255,153,0,0.15)" filter="url(#glow)"/>
+
+    <defs>
+      <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="6" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- Wordmark bottom-right -->
+  <div class="wordmark">Cart<span>Watch</span></div>
+</div>
+</body>
+</html>
