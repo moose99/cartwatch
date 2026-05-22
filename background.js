@@ -117,7 +117,7 @@ function buildUrl(baseUrl, year, startIndex) {
 }
 
 async function beginScan(baseUrl, targetMonth) {
-  const data = await chrome.storage.local.get({ scanStatus: null, orders: {} });
+  const data = await chrome.storage.local.get({ scanStatus: null, orders: {}, yearTotals: {} });
   if (data.scanStatus && data.scanStatus.scanning && !isStale(data.scanStatus)) {
     return;
   }
@@ -142,6 +142,7 @@ async function beginScan(baseUrl, targetMonth) {
     monthFound: 0,
     total: null,
     tabId: null,
+    knownYearTotal: data.yearTotals[year] ?? null, // used to detect if new orders exist
 
     // Binary search state
     phase: 'discover',
@@ -185,6 +186,12 @@ async function handlePageScraped(orders, totalCount) {
     const lastPage = Math.max(0, Math.floor((totalCount - 1) / PAGE_SIZE) * PAGE_SIZE);
     scanState.lastPageIndex = lastPage;
     scanState.hi = lastPage;
+
+    // Quick-exit: if the year order count hasn't changed since the last scan,
+    // there is nothing new to collect.
+    if (scanState.knownYearTotal !== null && totalCount === scanState.knownYearTotal) {
+      return finalizeScan({ upToDate: true });
+    }
   }
 
   scanState.scanned += orders.length;
@@ -292,7 +299,7 @@ async function collectStep(orders) {
   return navigateToStartIndex(nextIndex);
 }
 
-async function finalizeScan() {
+async function finalizeScan(opts = {}) {
   clearPageTimer();
   const tabId = scanState.tabId;
   scanState.tabId = null;
@@ -300,8 +307,19 @@ async function finalizeScan() {
   const monthFound = scanState.monthFound || 0;
   const targetMonth = scanState.targetMonth;
   const { scanned } = scanState;
-  const finalStatus = { scanning: false, scanned, monthFound, targetMonth };
-  if (monthFound === 0) finalStatus.info = `No orders found for ${targetMonth}.`;
-  await chrome.storage.local.set({ scanStatus: finalStatus, scanTabId: null });
+  const storageUpdate = { scanTabId: null };
+  if (opts.upToDate) {
+    storageUpdate.scanStatus = { scanning: false, upToDate: true };
+  } else {
+    const finalStatus = { scanning: false, scanned, monthFound, targetMonth };
+    if (monthFound === 0) finalStatus.info = `No orders found for ${targetMonth}.`;
+    storageUpdate.scanStatus = finalStatus;
+  }
+  // Persist the year total keyed by year so the next auto-scan can detect new orders quickly.
+  if (scanState.total) {
+    const { yearTotals = {} } = await chrome.storage.local.get({ yearTotals: {} });
+    storageUpdate.yearTotals = { ...yearTotals, [scanState.year]: scanState.total };
+  }
+  await chrome.storage.local.set(storageUpdate);
   scanState = null;
 }

@@ -85,6 +85,10 @@
       }
     } else {
       renderScanProgress(data.scanStatus, data.lastScan);
+      // Auto-scan on open. The background does a single-page check first and
+      // exits immediately if the year order count hasn't changed, so this is
+      // cheap when there's nothing new.
+      startScan();
     }
     renderSortButtons();
     render();
@@ -433,6 +437,9 @@
       } else if (status && status.info) {
         progressEl.textContent = status.info;
         progressEl.style.display = '';
+      } else if (status && status.upToDate) {
+        progressEl.textContent = 'Up to date';
+        progressEl.style.display = '';
       } else {
         progressEl.style.display = 'none';
       }
@@ -541,7 +548,5 @@
     return currencySymbol + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
-  function escapeHtml(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
+
 })();
