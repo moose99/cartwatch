@@ -13,6 +13,9 @@ Chrome MV3 extension that tracks Amazon spending against a monthly budget.
 
 ## Architecture
 
-CartWatch opens a background browser tab to navigate Amazon order history pages (direct fetch isn't possible due to client-side encryption). A content script reads each page and sends order data back to the service worker, which uses a binary search to find the target month quickly before doing a linear scan to collect orders. Everything is stored locally in `chrome.storage.local` - nothing leaves the browser.
+CartWatch navigates Amazon order history pages using a content script which reads each page and sends order data back to the service worker to collect orders. Everything is stored locally in `chrome.storage.local` - nothing leaves the browser. No sensitive payment details are read, only Amazon's descriptive names (e.g. "Visa ending in 1234").
+
+See privacy policy for details:
+https://moose99.github.io/cartwatch/privacy-policy.html
 
 See the source for implementation details.
