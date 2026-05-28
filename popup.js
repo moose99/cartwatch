@@ -23,6 +23,22 @@
 
   // --- Init ---
 
+  // Help modal
+  const EXTENSION_ID = chrome.runtime.id;
+  const STORE_URL = `https://chromewebstore.google.com/detail/${EXTENSION_ID}`;
+  document.getElementById('review-link').href = `${STORE_URL}/reviews`;
+  document.getElementById('help-version').textContent = chrome.runtime.getManifest().version;
+  document.getElementById('help-btn').addEventListener('click', () => {
+    document.getElementById('help-overlay').style.display = 'flex';
+  });
+  document.getElementById('help-close').addEventListener('click', () => {
+    document.getElementById('help-overlay').style.display = 'none';
+  });
+  document.getElementById('help-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('help-overlay'))
+      document.getElementById('help-overlay').style.display = 'none';
+  });
+
   document.getElementById('scan-btn').addEventListener('click', startScan);
   document.getElementById('clear-btn').addEventListener('click', clearData);
   document.getElementById('prev-month').addEventListener('click', () => { viewMonth = offsetMonth(viewMonth, -1); render(); });

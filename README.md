@@ -13,18 +13,6 @@ Chrome MV3 extension that tracks Amazon spending against a monthly budget.
 
 ## Architecture
 
-**Scan flow (background.js):**
-1. Opens a background tab on the Amazon order-history page (client-side encryption means fetch+DOMParser can't read the data directly)
-2. Phase `discover` - binary search over `startIndex` to find the page boundary where the target month begins
-3. Phase `collect` - linear scan from that boundary, collecting orders for the target month until a page with older orders is hit
-4. Finalizes and closes the tab
+CartWatch opens a background browser tab to navigate Amazon order history pages (direct fetch isn't possible due to client-side encryption). A content script reads each page and sends order data back to the service worker, which uses a binary search to find the target month quickly before doing a linear scan to collect orders. Everything is stored locally in `chrome.storage.local` - nothing leaves the browser.
 
-**Content script (content.js):**
-- Polls until Amazon's client-side decryption is done (`.order-card` elements have visible content)
-- Scrapes each `.order-card` for: order ID, date, total, product names, ship-to name, payment method, and refund amounts
-- Payment method is read directly from the card text via regex ("ending in XXXX" patterns) - there is no separate order-detail page scraping phase
-- Sends results back via `chrome.runtime.sendMessage({ type: 'pageScraped', ... })`
-
-**Storage:**
-- Orders stored in `chrome.storage.local` keyed by order ID (falls back to `date_amount` composite key)
-- Budget and scan status also stored in `chrome.storage.local`
+See the source for implementation details.

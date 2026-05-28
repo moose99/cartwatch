@@ -18,6 +18,53 @@
       <circle cx="35" cy="36" r="3" fill="none" stroke="white" stroke-width="2.5"/>
     </svg>
     <span class="title">CartWatch</span>
+    <button id="help-btn" class="help-btn" title="Help">?</button>
+  </div>
+
+  <!-- Help modal -->
+  <div id="help-overlay" class="help-overlay" style="display:none">
+    <div class="help-modal">
+      <div class="help-header">
+        <span class="help-title">About CartWatch</span>
+        <button id="help-close" class="help-close">&times;</button>
+      </div>
+      <div class="help-body">
+        <h3>What is CartWatch?</h3>
+        <p>CartWatch tracks your Amazon order history and shows you how much you've spent each month against a monthly budget you set.</p>
+
+        <h3>How to use it</h3>
+        <ol>
+          <li>Set a monthly budget in the budget field at the top.</li>
+          <li>Click <strong>Update</strong> to scan your Amazon orders (CartWatch will auto-update on first launch). Make sure you're logged in to Amazon first.</li>
+          <li>Use the <strong>&lsaquo; &rsaquo;</strong> arrows to browse previous months.</li>
+          <li>Filter by recipient or payment method using the filter panel above the order list.</li>
+          <li>CartWatch auto-updates when you open it if new orders have been placed since the last scan.</li>
+        </ol>
+
+        <h3>Supported regions</h3>
+        <p>amazon.com &nbsp;&middot;&nbsp; amazon.co.uk &nbsp;&middot;&nbsp; amazon.ca &nbsp;&middot;&nbsp; amazon.com.au &nbsp;&middot;&nbsp; amazon.in</p>
+
+        <div class="help-divider"></div>
+
+        <div class="help-cta">
+          <p>Enjoying CartWatch? A review on the Chrome Web Store helps others find it.</p>
+          <a id="review-link" href="#" target="_blank" class="help-action-btn review-btn">&#9733; Leave a review</a>
+        </div>
+
+        <div class="help-cta">
+          <p>Want to support continued development of CartWatch and future apps?</p>
+          <a href="https://buymeacoffee.com/mthamer" target="_blank" class="help-action-btn coffee-btn">&#9749; Buy me a coffee</a>
+        </div>
+
+        <div class="help-divider"></div>
+
+        <p class="help-footer">
+          CartWatch v<span id="help-version"></span> &nbsp;&middot;&nbsp;
+          <a href="https://moose99.github.io/cartwatch/privacy-policy.html" target="_blank">Privacy policy</a> &nbsp;&middot;&nbsp;
+          <a href="https://github.com/moose99/cartwatch" target="_blank">GitHub</a>
+        </p>
+      </div>
+    </div>
   </div>
 
   <div class="month-nav">
