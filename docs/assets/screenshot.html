@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1280px; height: 800px; overflow: hidden; }
+
+  .stage {
+    width: 1280px;
+    height: 800px;
+    background: linear-gradient(120deg, #1a2530 0%, #232f3e 60%, #2d3f52 100%);
+    position: relative;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  }
+  .stage::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,153,0,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,153,0,0.04) 1px, transparent 1px);
+    background-size: 70px 70px;
+  }
+  .ring { position: absolute; border-radius: 50%; border: 1px solid rgba(255,153,0,0.08); pointer-events: none; }
+  .ring1 { width: 760px; height: 760px; top: -260px; right: -160px; }
+  .ring2 { width: 420px; height: 420px; top: -90px; right: 60px; }
+
+  /* Left pitch text */
+  .pitch {
+    position: relative;
+    width: 620px;
+    padding-left: 90px;
+    color: #fff;
+  }
+  .pitch .logo-row { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+  .pitch .brand { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; }
+  .pitch .brand span { color: #FF9900; }
+  .pitch h1 { font-size: 46px; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 24px; }
+  .pitch h1 .hl { color: #FF9900; }
+  .pitch ul { list-style: none; }
+  .pitch li { font-size: 21px; color: rgba(255,255,255,0.8); margin-bottom: 14px; padding-left: 30px; position: relative; }
+  .pitch li::before { content: '✓'; position: absolute; left: 0; color: #FF9900; font-weight: 700; }
+
+  /* Popup mock on the right */
+  .popup-wrap {
+    position: relative;
+    margin-left: auto;
+    margin-right: 90px;
+    width: 360px;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.5);
+    background: #fafafa;
+  }
+
+  /* ---- popup styles (mirrors popup.css) ---- */
+  .p-header { background:#232f3e; color:#fff; padding:12px 16px; display:flex; align-items:center; gap:10px; }
+  .p-title { font-size:16px; font-weight:600; flex:1; }
+  .p-help { border:1px solid rgba(255,255,255,.3); border-radius:50%; width:22px; height:22px; color:rgba(255,255,255,.7); font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .p-monthnav { background:#fff; padding:12px 16px 8px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e8e8e8; }
+  .p-monthnav .nav { border:1px solid #ccc; border-radius:4px; width:28px; height:28px; color:#555; display:flex; align-items:center; justify-content:center; font-size:17px; }
+  .p-month { font-size:16px; font-weight:600; color:#232f3e; }
+  .p-budget { background:#fff; padding:14px 16px; border-bottom:1px solid #e8e8e8; }
+  .p-budrow { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .p-label { font-size:12px; color:#666; font-weight:500; text-transform:uppercase; letter-spacing:.4px; }
+  .p-budinput { display:flex; align-items:center; border:1px solid #ccc; border-radius:5px; overflow:hidden; }
+  .p-cur { padding:5px 7px; background:#f5f5f5; border-right:1px solid #ccc; font-size:14px; color:#444; }
+  .p-budval { padding:5px 12px; font-size:14px; width:70px; }
+  .p-barwrap { display:flex; align-items:center; gap:9px; margin-bottom:12px; }
+  .p-bar { flex:1; height:11px; background:#e8e8e8; border-radius:6px; overflow:hidden; }
+  .p-fill { height:100%; width:65%; background:#3cb371; border-radius:6px; }
+  .p-pct { font-size:13px; color:#555; }
+  .p-amounts { display:flex; justify-content:space-between; }
+  .p-amt { font-size:21px; font-weight:700; color:#111; line-height:1.2; }
+  .p-amtr { text-align:right; }
+  .p-amtlabel { font-size:11px; color:#888; }
+  .p-orders-h { padding:11px 16px 7px; }
+  .p-orders-h .p-label { display:block; }
+  .p-toolbar { padding:5px 16px; border-bottom:1px solid #f0f0f0; display:flex; align-items:center; gap:9px; }
+  .p-hide { font-size:11px; color:#888; display:flex; align-items:center; gap:6px; }
+  .p-chk { width:13px; height:13px; border:1px solid #bbb; border-radius:3px; display:inline-block; }
+  .p-sortbtns { display:flex; gap:5px; margin-left:auto; }
+  .p-sort { font-size:11px; padding:3px 8px; border:1px solid #ddd; border-radius:4px; color:#555; background:#f5f5f5; }
+  .p-sort.active { background:#232f3e; color:#fff; border-color:#232f3e; }
+  .p-list { background:#fff; }
+  .p-row { display:flex; align-items:center; padding:8px 16px; border-top:1px solid #f0f0f0; gap:6px; }
+  .p-row:first-child { border-top:none; }
+  .p-date { font-size:12px; color:#666; min-width:42px; }
+  .p-name { font-size:12px; color:#333; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 4px; }
+  .p-oamt { font-size:13px; font-weight:600; color:#111; min-width:54px; text-align:right; }
+  .badge { display:inline-block; padding:1px 5px; font-size:9px; font-weight:700; letter-spacing:.5px; color:#fff; border-radius:3px; }
+  .badge.ref { background:#999; }
+  .badge.part { background:#d97706; letter-spacing:0; }
+  .badge.ret { background:#0066c0; letter-spacing:0; }
+  .badge.can { background:#888; }
+  .p-footer { padding:12px 16px; background:#fafafa; }
+  .p-update { width:100%; padding:9px 0; background:#f90; border:none; border-radius:5px; font-size:14px; font-weight:600; color:#111; text-align:center; }
+  .p-lastscan { font-size:11px; color:#aaa; text-align:center; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="ring ring1"></div>
+  <div class="ring ring2"></div>
+
+  <div class="pitch">
+    <div class="logo-row">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="56" height="56">
+        <rect x="1" y="1" width="46" height="46" rx="10" fill="#37475a"/>
+        <rect x="21" y="24" width="17" height="6" rx="2" fill="#FF9900"/>
+        <path d="M6 14 L17 14 L22 30 L37 30 L40 18 L20 18" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="25" cy="36" r="3" fill="none" stroke="white" stroke-width="2.5"/>
+        <circle cx="35" cy="36" r="3" fill="none" stroke="white" stroke-width="2.5"/>
+      </svg>
+      <div class="brand">Cart<span>Watch</span></div>
+    </div>
+    <h1>Know exactly what you<br>spend on <span class="hl">Amazon</span>.</h1>
+    <ul>
+      <li>Set a monthly budget, track it live</li>
+      <li>Updates automatically when you open it</li>
+      <li>Filter by recipient or payment method</li>
+      <li>All data stays on your device</li>
+    </ul>
+  </div>
+
+  <div class="popup-wrap">
+    <div class="p-header">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="22" height="22">
+        <rect x="1" y="1" width="46" height="46" rx="8" fill="#37475a"/>
+        <rect x="21" y="24" width="17" height="6" rx="2" fill="#FF9900"/>
+        <path d="M6 14 L17 14 L22 30 L37 30 L40 18 L20 18" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="25" cy="36" r="3" fill="none" stroke="white" stroke-width="2.5"/>
+        <circle cx="35" cy="36" r="3" fill="none" stroke="white" stroke-width="2.5"/>
+      </svg>
+      <span class="p-title">CartWatch</span>
+      <span class="p-help">?</span>
+    </div>
+    <div class="p-monthnav">
+      <span class="nav">&#8249;</span>
+      <span class="p-month">May 2026</span>
+      <span class="nav">&#8250;</span>
+    </div>
+    <div class="p-budget">
+      <div class="p-budrow">
+        <span class="p-label">Monthly budget</span>
+        <span class="p-budinput"><span class="p-cur">$</span><span class="p-budval">800</span></span>
+      </div>
+      <div class="p-barwrap">
+        <span class="p-bar"><span class="p-fill"></span></span>
+        <span class="p-pct">65%</span>
+      </div>
+      <div class="p-amounts">
+        <div><div class="p-amt">$520.43</div><div class="p-amtlabel">spent</div></div>
+        <div class="p-amtr"><div class="p-amt">$279.57</div><div class="p-amtlabel">remaining</div></div>
+      </div>
+    </div>
+    <div class="p-orders-h"><span class="p-label">Orders this month</span></div>
+    <div class="p-toolbar">
+      <span class="p-hide"><span class="p-chk"></span> Hide $0</span>
+      <span class="p-sortbtns"><span class="p-sort active">Date &darr;</span><span class="p-sort">Amount</span></span>
+    </div>
+    <div class="p-list">
+      <div class="p-row"><span class="p-date">May 21</span><span class="p-name">First Alert Smoke Alarm</span><span class="p-oamt">$19.73</span></div>
+      <div class="p-row"><span class="badge ret">RETURNING</span><span class="p-date">May 18</span><span class="p-name">Anker USB-C Cable, 2-pack</span><span class="p-oamt">$24.99</span></div>
+      <div class="p-row"><span class="p-date">May 15</span><span class="p-name">Logitech MX Master 3S</span><span class="p-oamt">$99.99</span></div>
+      <div class="p-row"><span class="badge part">&minus;$12.00</span><span class="p-date">May 12</span><span class="p-name">Kitchen Towels +2 more</span><span class="p-oamt">$41.50</span></div>
+      <div class="p-row"><span class="badge ref">REFUNDED</span><span class="p-date">May 9</span><span class="p-name">Bluetooth Speaker</span><span class="p-oamt">$0.00</span></div>
+      <div class="p-row"><span class="p-date">May 6</span><span class="p-name">Whole Foods Market (pickup)</span><span class="p-oamt">$87.21</span></div>
+    </div>
+    <div class="p-footer">
+      <div class="p-update">Update</div>
+      <div class="p-lastscan">Last scanned: May 21, 6:43 PM</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

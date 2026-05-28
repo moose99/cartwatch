@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1400px; height: 560px; overflow: hidden; }
+  .tile {
+    width: 1400px; height: 560px;
+    background: linear-gradient(120deg, #1a2530 0%, #232f3e 60%, #2d3f52 100%);
+    position: relative; overflow: hidden;
+    display: flex; align-items: center;
+    padding-left: 110px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  }
+  .tile::before {
+    content: ''; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,153,0,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,153,0,0.04) 1px, transparent 1px);
+    background-size: 70px 70px;
+  }
+  .ring { position: absolute; border-radius: 50%; border: 1px solid rgba(255,153,0,0.08); }
+  .ring1 { width: 820px; height: 820px; top: -300px; right: -160px; }
+  .ring2 { width: 480px; height: 480px; top: -120px; right: 90px; }
+  .content { position: relative; display: flex; align-items: center; gap: 50px; }
+  .logo { flex-shrink: 0; filter: drop-shadow(0 0 28px rgba(255,153,0,0.45)); }
+  .text { display: flex; flex-direction: column; gap: 14px; }
+  .brand { font-size: 88px; font-weight: 700; color: #fff; letter-spacing: -0.02em; line-height: 1; }
+  .brand span { color: #FF9900; }
+  .tag { font-size: 30px; color: rgba(255,255,255,0.55); letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+<div class="tile">
+  <div class="ring ring1"></div>
+  <div class="ring ring2"></div>
+  <div class="content">
+    <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="170" height="170">
+      <rect x="1" y="1" width="46" height="46" rx="10" fill="#37475a"/>
+      <rect x="21" y="24" width="17" height="6" rx="2" fill="#FF9900"/>
+      <path d="M6 14 L17 14 L22 30 L37 30 L40 18 L20 18" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="25" cy="36" r="3" fill="none" stroke="white" stroke-width="2.5"/>
+      <circle cx="35" cy="36" r="3" fill="none" stroke="white" stroke-width="2.5"/>
+    </svg>
+    <div class="text">
+      <div class="brand">Cart<span>Watch</span></div>
+      <div class="tag">Track your Amazon spending against a monthly budget</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
