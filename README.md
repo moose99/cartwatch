@@ -2,6 +2,8 @@
 
 Chrome MV3 extension that tracks Amazon spending against a monthly budget.
 
+**[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/limngcimckbjlplebehebajacgepcaca)**
+
 ## Files
 
 - `manifest.json` - MV3 manifest; content script runs on Amazon order-history pages only
