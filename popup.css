@@ -129,6 +129,40 @@ body {
 .help-footer a { color: #0066c0; text-decoration: none; }
 .help-footer a:hover { text-decoration: underline; }
 
+/* Confirm dialog */
+.confirm-modal {
+  background: #fff;
+  border-radius: 8px;
+  width: calc(100% - 48px);
+  max-width: 320px;
+  margin: auto 24px;
+  padding: 18px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+}
+.confirm-message {
+  font-size: 13px;
+  color: #333;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.confirm-btn {
+  padding: 7px 16px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #ccc;
+}
+.confirm-cancel { background: #fff; color: #555; }
+.confirm-cancel:hover { background: #f0f0f0; }
+.confirm-ok { background: #cc2200; color: #fff; border-color: #cc2200; }
+.confirm-ok:hover { background: #a91d00; }
+
 /* Month navigation */
 .month-nav {
   display: flex;

@@ -9,7 +9,7 @@
 
 const BASE_URL = 'https://www.amazon.com';
 const PAGE_SIZE = 10;
-const PAGE_TIMEOUT_MS = 30000; // max wait for a page to scrape before aborting
+const PAGE_TIMEOUT_MS = 12000; // max wait for a page to scrape before aborting
 let scanState = null;
 let pageTimer = null;
 
@@ -143,6 +143,7 @@ async function beginScan(baseUrl, targetMonth) {
     total: null,
     tabId: null,
     knownYearTotal: data.yearTotals[year] ?? null, // used to detect if new orders exist
+    hadTargetData: Object.keys(stored).length > 0, // already have orders for this month
 
     // Binary search state
     phase: 'discover',
@@ -187,9 +188,12 @@ async function handlePageScraped(orders, totalCount) {
     scanState.lastPageIndex = lastPage;
     scanState.hi = lastPage;
 
-    // Quick-exit: if the year order count hasn't changed since the last scan,
-    // there is nothing new to collect.
-    if (scanState.knownYearTotal !== null && totalCount === scanState.knownYearTotal) {
+    // Quick-exit: if the year order count is unchanged AND we already have this
+    // month's orders, there is nothing new to collect. We require existing data
+    // for the target month so that browsing to a not-yet-scanned month in an
+    // already-scanned year still performs a full scan.
+    if (scanState.knownYearTotal !== null && totalCount === scanState.knownYearTotal
+        && scanState.hadTargetData) {
       return finalizeScan({ upToDate: true });
     }
   }

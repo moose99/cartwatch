@@ -67,6 +67,17 @@
     </div>
   </div>
 
+  <!-- Confirm dialog -->
+  <div id="confirm-overlay" class="help-overlay" style="display:none">
+    <div class="confirm-modal">
+      <p id="confirm-message" class="confirm-message"></p>
+      <div class="confirm-actions">
+        <button id="confirm-cancel" class="confirm-btn confirm-cancel">Cancel</button>
+        <button id="confirm-ok" class="confirm-btn confirm-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
   <div class="month-nav">
     <button id="prev-month" class="nav-btn" title="Previous month">&#8249;</button>
     <span id="month-label" class="month-label"></span>
@@ -124,8 +135,8 @@
     <div id="filter-resize-handle" class="filter-resize-handle" style="display:none"></div>
     <div class="orders-toolbar" id="orders-toolbar">
       <label class="hide-zero-label">
-        <input type="checkbox" id="hide-zero">
-        <span>Hide $0</span>
+        <input type="checkbox" id="hide-cancelled">
+        <span>Hide cancelled</span>
       </label>
       <div class="sort-controls">
         <button id="sort-date" class="sort-btn sort-active">Date ↓</button>
@@ -137,7 +148,7 @@
   </div>
 
   <div class="footer">
-    <button id="scan-btn" class="scan-btn">Update</button>
+    <button id="scan-btn" class="scan-btn">Update Amazon Orders</button>
     <div id="scan-bar-wrap" class="scan-bar-wrap" style="display:none">
       <div class="scan-bar">
         <div class="scan-bar-fill" id="scan-bar-fill"></div>

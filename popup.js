@@ -18,7 +18,7 @@
   let excludedPayments = new Set();  // payment methods the user has unchecked
   let sortBy = 'date';           // 'date' | 'amount'
   let sortDir = -1;              // -1 = descending, 1 = ascending
-  let hideZero = false;
+  let hideCancelled = false;
   const expandedOrders = new Set();
 
   // --- Init ---
@@ -45,7 +45,7 @@
   document.getElementById('next-month').addEventListener('click', () => { viewMonth = offsetMonth(viewMonth, +1); render(); });
   document.getElementById('budget-input').addEventListener('change', onBudgetChange);
   document.getElementById('budget-input').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
-  document.getElementById('hide-zero').addEventListener('change', e => { hideZero = e.target.checked; render(); });
+  document.getElementById('hide-cancelled').addEventListener('change', e => { hideCancelled = e.target.checked; render(); });
   // Resize handle between filter panel and orders list
   document.getElementById('filter-resize-handle').addEventListener('mousedown', e => {
     e.preventDefault();
@@ -174,7 +174,7 @@
       if (o.shipTo) addressNames.add(o.shipTo);
       if (o.paymentMethod) paymentMethods.add(o.paymentMethod);
       // apply active filters for the visible list
-      if (hideZero && o.amount === 0) continue;
+      if (hideCancelled && o.cancelled) continue;
       if (o.shipTo && excludedAddresses.has(o.shipTo)) continue;
       if (o.paymentMethod && excludedPayments.has(o.paymentMethod)) continue;
       monthOrders.push(o);
@@ -433,14 +433,14 @@
 
     const scanning = status && status.scanning && !isStale(status);
     btn.disabled = scanning;
-    btn.textContent = scanning ? 'Scanning...' : 'Update';
+    btn.textContent = scanning ? 'Scanning Amazon Orders...' : 'Update Amazon Orders';
 
     if (scanning) {
       barWrap.style.display = '';
       if (status.phase === 'orders') {
         barFill.classList.add('indeterminate');
         barFill.style.width = '';
-        progressEl.textContent = `Scanning... ${status.monthFound || 0} found`;
+        progressEl.textContent = `Scanning Amazon Orders... ${status.monthFound || 0} found`;
       }
       progressEl.style.display = '';
       lastScanEl.textContent = '';
@@ -496,8 +496,32 @@
     });
   }
 
+  // In-popup confirmation dialog (native confirm() gets clipped in narrow popups).
+  function showConfirm(message, onConfirm) {
+    const overlay = document.getElementById('confirm-overlay');
+    const okBtn = document.getElementById('confirm-ok');
+    const cancelBtn = document.getElementById('confirm-cancel');
+    document.getElementById('confirm-message').textContent = message;
+    overlay.style.display = 'flex';
+    function cleanup() {
+      overlay.style.display = 'none';
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', onOverlay);
+    }
+    function onOk() { cleanup(); onConfirm(); }
+    function onCancel() { cleanup(); }
+    function onOverlay(e) { if (e.target === overlay) cleanup(); }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    overlay.addEventListener('click', onOverlay);
+  }
+
   function clearData() {
-    if (!confirm('Clear all stored orders and budget? This cannot be undone.')) return;
+    showConfirm('Clear all stored orders and budget? This cannot be undone.', doClearData);
+  }
+
+  function doClearData() {
     chrome.storage.local.clear(() => {
       if (chrome.runtime.lastError) {
         console.error('[CartWatch] clear failed:', chrome.runtime.lastError.message);
