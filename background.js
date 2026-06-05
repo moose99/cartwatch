@@ -98,11 +98,26 @@ function armPageTimer() {
   clearPageTimer();
   pageTimer = setTimeout(async () => {
     if (!scanState) return;
+    const tabId = scanState.tabId;
+
+    // Check the scan tab's URL: if Amazon redirected to a sign-in page, the
+    // user is not logged in. Otherwise fall back to a generic timeout message.
+    let info = 'Scan timed out. Try again in a moment.';
+    let needsLogin = false;
+    if (tabId) {
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        if (tab.url && /\/(ap\/signin|ap\/identifierselect|gp\/sign-in)/i.test(tab.url)) {
+          info = 'You are not signed in to Amazon. Please sign in to Amazon in any tab, then click Update Amazon Orders again.';
+          needsLogin = true;
+        }
+      } catch (e) { /* tab already gone */ }
+    }
+
     await chrome.storage.local.set({
-      scanStatus: { scanning: false, info: 'Scan timed out. Make sure you are logged in to Amazon.' },
+      scanStatus: { scanning: false, info, needsLogin, needsAttention: true, errorAt: Date.now() },
       scanTabId: null,
     }, () => { void chrome.runtime.lastError; });
-    const tabId = scanState.tabId;
     scanState = null;
     if (tabId) { try { await chrome.tabs.remove(tabId); } catch (e) {} }
   }, PAGE_TIMEOUT_MS);
@@ -117,7 +132,7 @@ function buildUrl(baseUrl, year, startIndex) {
 }
 
 async function beginScan(baseUrl, targetMonth) {
-  const data = await chrome.storage.local.get({ scanStatus: null, orders: {}, yearTotals: {} });
+  const data = await chrome.storage.local.get({ scanStatus: null, orders: {}, yearTotals: {}, completedMonths: {} });
   if (data.scanStatus && data.scanStatus.scanning && !isStale(data.scanStatus)) {
     return;
   }
@@ -143,7 +158,10 @@ async function beginScan(baseUrl, targetMonth) {
     total: null,
     tabId: null,
     knownYearTotal: data.yearTotals[year] ?? null, // used to detect if new orders exist
-    hadTargetData: Object.keys(stored).length > 0, // already have orders for this month
+    // True only when the target month's last scan completed fully. A partial scan
+    // (interrupted by sign-out, tab close, timeout) leaves stored orders but does
+    // NOT set this flag, so the next scan won't quick-exit on partial data.
+    targetMonthCompleted: !!data.completedMonths[targetMonth],
 
     // Binary search state
     phase: 'discover',
@@ -188,12 +206,12 @@ async function handlePageScraped(orders, totalCount) {
     scanState.lastPageIndex = lastPage;
     scanState.hi = lastPage;
 
-    // Quick-exit: if the year order count is unchanged AND we already have this
-    // month's orders, there is nothing new to collect. We require existing data
-    // for the target month so that browsing to a not-yet-scanned month in an
-    // already-scanned year still performs a full scan.
+    // Quick-exit: if the year order count is unchanged AND the target month's
+    // previous scan completed fully, there is nothing new to collect.
+    // We require completion (not just "has any data") so that an interrupted
+    // partial scan doesn't cause subsequent re-scans to skip collection.
     if (scanState.knownYearTotal !== null && totalCount === scanState.knownYearTotal
-        && scanState.hadTargetData) {
+        && scanState.targetMonthCompleted) {
       return finalizeScan({ upToDate: true });
     }
   }
@@ -319,10 +337,13 @@ async function finalizeScan(opts = {}) {
     if (monthFound === 0) finalStatus.info = `No orders found for ${targetMonth}.`;
     storageUpdate.scanStatus = finalStatus;
   }
-  // Persist the year total keyed by year so the next auto-scan can detect new orders quickly.
+  // Persist the year total and mark this month as fully scanned. Only happens
+  // on a clean finalize (not on timeout or tab-close interruption), so an
+  // interrupted scan won't falsely mark the month complete.
   if (scanState.total) {
-    const { yearTotals = {} } = await chrome.storage.local.get({ yearTotals: {} });
+    const { yearTotals = {}, completedMonths = {} } = await chrome.storage.local.get({ yearTotals: {}, completedMonths: {} });
     storageUpdate.yearTotals = { ...yearTotals, [scanState.year]: scanState.total };
+    storageUpdate.completedMonths = { ...completedMonths, [targetMonth]: Date.now() };
   }
   await chrome.storage.local.set(storageUpdate);
   scanState = null;

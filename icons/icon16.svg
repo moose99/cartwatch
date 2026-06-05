@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
-  <rect width="16" height="16" rx="3" fill="#232f3e"/>
+  <rect width="16" height="16" rx="3" fill="#37475a"/>
   <!-- orange budget bar inside cart basket -->
   <rect x="7" y="8" width="6" height="2" rx="1" fill="#FF9900"/>
   <!-- cart: handle, arm, basket outline -->

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_screenshot",
+      "mcp__Claude_Preview__preview_resize",
+      "mcp__claude_ai_Atlassian_Rovo__getJiraIssue"
+    ]
+  }
+}

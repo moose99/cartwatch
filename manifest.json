@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CartWatch",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Track your Amazon spending and stay under your monthly budget.",
   "permissions": ["storage", "tabs", "scripting"],
   "host_permissions": [

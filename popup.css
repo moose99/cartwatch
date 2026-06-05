@@ -162,6 +162,8 @@ body {
 .confirm-cancel:hover { background: #f0f0f0; }
 .confirm-ok { background: #cc2200; color: #fff; border-color: #cc2200; }
 .confirm-ok:hover { background: #a91d00; }
+.confirm-ok.alert-mode { background: #232f3e; border-color: #232f3e; }
+.confirm-ok.alert-mode:hover { background: #1a2530; }
 
 /* Month navigation */
 .month-nav {

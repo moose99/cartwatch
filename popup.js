@@ -19,6 +19,7 @@
   let sortBy = 'date';           // 'date' | 'amount'
   let sortDir = -1;              // -1 = descending, 1 = ascending
   let hideCancelled = false;
+  let lastAlertedAt = 0; // errorAt timestamp of the last alert we showed
   const expandedOrders = new Set();
 
   // --- Init ---
@@ -465,6 +466,14 @@
       } else {
         lastScanEl.textContent = 'Not scanned yet - click above to scan.';
       }
+
+      // Pop up a prominent alert for scan errors the user should not miss
+      // (timeouts, not-signed-in). errorAt ensures we only show each error once
+      // per popup session.
+      if (status && status.needsAttention && status.errorAt && status.errorAt > lastAlertedAt) {
+        lastAlertedAt = status.errorAt;
+        showAlert(status.info);
+      }
     }
   }
 
@@ -494,6 +503,28 @@
     safeSet({ scanStatus: { scanning: false }, amazonOrigin: baseUrl }, () => {
       chrome.runtime.sendMessage({ type: 'startScan', baseUrl, targetMonth: viewMonth });
     });
+  }
+
+  // In-popup alert dialog. Reuses the confirm overlay with Cancel hidden.
+  function showAlert(message) {
+    const overlay = document.getElementById('confirm-overlay');
+    const okBtn = document.getElementById('confirm-ok');
+    const cancelBtn = document.getElementById('confirm-cancel');
+    document.getElementById('confirm-message').textContent = message;
+    cancelBtn.style.display = 'none';
+    okBtn.classList.add('alert-mode');
+    overlay.style.display = 'flex';
+    function cleanup() {
+      overlay.style.display = 'none';
+      okBtn.removeEventListener('click', onOk);
+      overlay.removeEventListener('click', onOverlay);
+      cancelBtn.style.display = '';
+      okBtn.classList.remove('alert-mode');
+    }
+    function onOk() { cleanup(); }
+    function onOverlay(e) { if (e.target === overlay) cleanup(); }
+    okBtn.addEventListener('click', onOk);
+    overlay.addEventListener('click', onOverlay);
   }
 
   // In-popup confirmation dialog (native confirm() gets clipped in narrow popups).
