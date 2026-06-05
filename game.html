@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bricks - CartWatch</title>
+  <link rel="stylesheet" href="game.css">
+</head>
+<body>
+  <div class="hud">
+    <span class="brand">Bricks</span>
+    <span class="hud-stat">Score <span id="score">0</span></span>
+    <span class="hud-stat">Best <span id="best">0</span></span>
+    <span class="hud-stat">Lives <span id="lives">3</span></span>
+    <span class="hud-stat">Level <span id="level">1</span></span>
+  </div>
+
+  <div class="board-wrap">
+    <canvas id="board" width="320" height="440"></canvas>
+    <div id="overlay" class="overlay">
+      <div class="overlay-card">
+        <div id="overlay-title" class="overlay-title">Bricks</div>
+        <div id="overlay-text" class="overlay-text">
+          Move the mouse to control the paddle.<br>
+          Click to launch the ball.<br>
+          Clear all the bricks to advance.
+        </div>
+        <button id="play-btn" class="play-action">Play</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

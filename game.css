@@ -1,0 +1,97 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #232f3e;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  font-size: 13px;
+  min-height: 100vh;
+  /* Keep the playfield usable: scroll instead of clipping if the user shrinks
+     the game window below the canvas + HUD footprint. */
+  min-width: 340px;
+  min-height: 510px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: none;
+  overflow: auto;
+}
+
+.hud {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #1a2530;
+  border-bottom: 1px solid #2d3f52;
+  flex-shrink: 0;
+}
+.brand {
+  font-weight: 700;
+  font-size: 14px;
+  color: #FF9900;
+  flex: 1;
+}
+.hud-stat {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: .3px;
+}
+.hud-stat span {
+  font-weight: 700;
+  color: #fff;
+  margin-left: 3px;
+}
+
+.board-wrap {
+  position: relative;
+  margin: 10px 0;
+}
+canvas {
+  display: block;
+  background: #15202b;
+  border-radius: 6px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+  cursor: default;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(21, 32, 43, 0.85);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.overlay.hidden { display: none; }
+.overlay-card {
+  text-align: center;
+  padding: 18px 22px;
+}
+.overlay-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #FF9900;
+  margin-bottom: 10px;
+}
+.overlay-text {
+  font-size: 12px;
+  color: rgba(255,255,255,0.8);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+.play-action {
+  background: #FF9900;
+  color: #111;
+  border: none;
+  border-radius: 5px;
+  padding: 8px 28px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.play-action:hover { background: #e88400; }

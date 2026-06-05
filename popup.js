@@ -42,6 +42,9 @@
 
   document.getElementById('scan-btn').addEventListener('click', startScan);
   document.getElementById('clear-btn').addEventListener('click', clearData);
+  document.getElementById('play-game-btn').addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: 'openGame' });
+  });
   document.getElementById('prev-month').addEventListener('click', () => { viewMonth = offsetMonth(viewMonth, -1); render(); });
   document.getElementById('next-month').addEventListener('click', () => { viewMonth = offsetMonth(viewMonth, +1); render(); });
   document.getElementById('budget-input').addEventListener('change', onBudgetChange);

@@ -57,15 +57,45 @@ chrome.action.onClicked.addListener(async () => {
 
 chrome.windows.onRemoved.addListener(id => {
   if (id === watchWindowId) watchWindowId = null;
+  gameWindowIds.delete(id);
 });
 
 chrome.windows.onBoundsChanged.addListener(win => {
-  if (win.id !== watchWindowId) return;
-  chrome.storage.local.set(
-    { winBounds: { width: win.width, height: win.height, left: win.left, top: win.top } },
-    () => { void chrome.runtime.lastError; }
-  );
+  if (win.id === watchWindowId) {
+    chrome.storage.local.set(
+      { winBounds: { width: win.width, height: win.height, left: win.left, top: win.top } },
+      () => { void chrome.runtime.lastError; }
+    );
+    return;
+  }
+  // Enforce minimum size on game windows. Chrome has no native "non-resizable"
+  // option, so we snap the window back if the user drags it below the minimum.
+  if (gameWindowIds.has(win.id)) {
+    if (win.width < GAME_MIN_W || win.height < GAME_MIN_H) {
+      chrome.windows.update(win.id, {
+        width: Math.max(win.width, GAME_MIN_W),
+        height: Math.max(win.height, GAME_MIN_H),
+      }, () => { void chrome.runtime.lastError; });
+    }
+  }
 });
+
+// --- Game window management ---
+
+const GAME_MIN_W = 360;
+const GAME_MIN_H = 540;
+const gameWindowIds = new Set();
+
+async function openGameWindow() {
+  const win = await chrome.windows.create({
+    url: chrome.runtime.getURL('game.html'),
+    type: 'popup',
+    width: GAME_MIN_W,
+    height: GAME_MIN_H,
+    focused: true,
+  });
+  gameWindowIds.add(win.id);
+}
 
 function isStale(s) {
   return Date.now() - (s.startedAt || 0) > 5 * 60 * 1000;
@@ -81,6 +111,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'isScanActive') {
     sendResponse({ active: scanState !== null });
     return true;
+  }
+  if (msg.type === 'openGame') {
+    openGameWindow().catch(console.error);
   }
 });
 
