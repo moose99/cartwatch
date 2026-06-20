@@ -62,60 +62,43 @@
   .p-tabbar { background:#fff; border-bottom:2px solid #e8e8e8; display:flex; }
   .p-tab { flex:1; text-align:center; padding:10px 0; font-size:12px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; color:#888; border-bottom:2px solid transparent; margin-bottom:-2px; }
   .p-tab.active { color:#232f3e; border-bottom-color:#f90; }
-  .p-monthnav { background:#fff; padding:10px 14px 7px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e8e8e8; }
-  .p-monthnav .nav { border:1px solid #ccc; border-radius:4px; width:24px; height:24px; color:#555; display:flex; align-items:center; justify-content:center; font-size:15px; }
-  .p-month { font-size:14px; font-weight:600; color:#232f3e; }
-  .p-budget { background:#fff; padding:11px 14px; border-bottom:1px solid #e8e8e8; }
-  .p-budrow { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-  .p-label { font-size:11px; color:#666; font-weight:500; text-transform:uppercase; letter-spacing:.4px; }
-  .p-budinput { display:flex; align-items:center; border:1px solid #ccc; border-radius:5px; overflow:hidden; }
-  .p-cur { padding:4px 6px; background:#f5f5f5; border-right:1px solid #ccc; font-size:13px; color:#444; }
-  .p-budval { padding:4px 10px; font-size:13px; width:60px; }
-  .p-barwrap { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
-  .p-bar { flex:1; height:10px; background:#e8e8e8; border-radius:5px; overflow:hidden; }
-  .p-fill { height:100%; width:62%; background:#3cb371; border-radius:5px; }
-  .p-pct { font-size:12px; color:#555; }
-  .p-amounts { display:flex; justify-content:space-between; }
-  .p-amt { font-size:18px; font-weight:700; color:#111; line-height:1.2; }
-  .p-amtr { text-align:right; }
-  .p-amtlabel { font-size:11px; color:#888; }
 
-  .p-orders-h { padding:9px 14px 6px; display:flex; align-items:center; justify-content:space-between; }
-  .p-ocount { font-size:11px; color:#888; background:#f0f0f0; border-radius:10px; padding:1px 7px; }
+  .p-trendctl { padding:10px 14px 8px; background:#fff; border-bottom:1px solid #e8e8e8; }
+  .p-rangebtns { display:flex; gap:5px; }
+  .p-rangebtn { font-size:11px; font-weight:600; padding:4px 10px; border:1px solid #ddd; border-radius:4px; color:#666; background:#f5f5f5; }
+  .p-rangebtn.active { background:#232f3e; color:#fff; border-color:#232f3e; }
 
   /* Recipient filter: vertical list with a fixed-height scroll area + native-style scrollbar */
-  .p-filterwrap { padding:0 14px 8px; }
+  .p-filterwrap { padding:6px 14px 7px; background:#fff; border-bottom:1px solid #e8e8e8; }
   .p-filtall { display:flex; align-items:center; gap:7px; font-size:12px; color:#555; font-weight:600; padding:2px 0 5px; }
   .p-filtchk { width:13px; height:13px; border-radius:3px; background:#f90; color:#fff; font-size:10px; font-weight:900; display:flex; align-items:center; justify-content:center; line-height:1; }
-  .p-filtbox { position:relative; height:84px; border-radius:3px; overflow:hidden; padding-left:4px; }
+  .p-filtbox { position:relative; height:108px; border-radius:3px; overflow:hidden; padding-left:4px; }
   .p-frow { display:flex; align-items:center; gap:7px; font-size:12px; color:#444; padding:2px 0; }
   .p-chk { width:12px; height:12px; border:1px solid #bbb; border-radius:3px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:9px; color:#fff; }
   .p-chk.on { background:#f90; border-color:#f90; }
   .p-scrollbar { position:absolute; top:0; right:0; bottom:0; width:14px; background:#f5f5f5; border-left:1px solid #e8e8e8; display:flex; flex-direction:column; align-items:center; }
   .p-sb-arrow { font-size:7px; color:#999; padding:3px 0; }
   .p-sb-track { flex:1; width:8px; position:relative; }
-  .p-sb-thumb { position:absolute; top:6px; left:0; width:8px; height:26px; background:#bbb; border-radius:4px; }
-  .p-resizehandle { height:6px; background:#eee; margin:0 14px; border-radius:2px; position:relative; }
+  .p-sb-thumb { position:absolute; top:8px; left:0; width:8px; height:30px; background:#bbb; border-radius:4px; }
+  .p-resizehandle { height:6px; background:#eee; position:relative; }
   .p-resizehandle::after { content:''; position:absolute; left:50%; top:50%; width:30px; height:3px; background:#ccc; border-radius:2px; transform:translate(-50%,-50%); }
 
-  .p-toolbar { padding:5px 14px; border-bottom:1px solid #f0f0f0; display:flex; align-items:center; gap:8px; }
-  .p-hide { font-size:11px; color:#888; display:flex; align-items:center; gap:6px; flex:1; }
-  .p-hidechk { width:12px; height:12px; border:1px solid #bbb; border-radius:3px; display:inline-block; }
-  .p-sortbtns { display:flex; gap:4px; }
-  .p-sort { font-size:10px; padding:2px 7px; border:1px solid #ddd; border-radius:4px; color:#555; background:#f5f5f5; }
-  .p-sort.active { background:#232f3e; color:#fff; border-color:#232f3e; }
+  .p-stats { display:flex; background:#fff; border-bottom:1px solid #e8e8e8; padding:11px 14px; }
+  .p-stat { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .p-stat + .p-stat { border-left:1px solid #f0f0f0; }
+  .p-statval { font-size:14px; font-weight:700; color:#111; }
+  .p-statlabel { font-size:9px; color:#999; text-transform:uppercase; letter-spacing:.3px; }
 
-  .p-list { background:#fff; }
-  .p-row { display:flex; align-items:center; padding:7px 14px; border-top:1px solid #f0f0f0; gap:5px; }
-  .p-row:first-child { border-top:none; }
-  .p-date { font-size:11px; color:#666; min-width:36px; }
-  .p-expand { width:12px; font-size:7px; color:#aaa; flex-shrink:0; }
-  .p-name { font-size:11px; color:#333; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 3px; }
-  .p-oamt { font-size:12px; font-weight:600; color:#111; min-width:50px; text-align:right; }
-  .badge { display:inline-block; padding:1px 5px; font-size:8px; font-weight:700; letter-spacing:.5px; color:#fff; border-radius:3px; flex-shrink:0; }
-  .badge.ref { background:#999; }
-  .badge.part { background:#d97706; letter-spacing:0; }
-  .badge.ret { background:#0066c0; letter-spacing:0; }
+  .p-ttable { background:#fff; }
+  .p-trow.head { display:flex; padding:6px 14px; background:#fafafa; border-bottom:1px solid #e8e8e8; }
+  .p-trow.head span { font-size:10px; font-weight:600; color:#666; text-transform:uppercase; letter-spacing:.3px; }
+  .p-trow.head span.active { color:#232f3e; }
+  .p-trow { display:flex; align-items:center; padding:9px 14px; border-top:1px solid #f0f0f0; }
+  .p-trow:nth-of-type(2) { border-top:none; }
+  .p-trow.hover { background:#fff6e8; }
+  .p-tmonth { flex:1; font-size:12px; color:#333; }
+  .p-tcount { width:56px; text-align:right; font-size:12px; color:#333; }
+  .p-ttotal { width:78px; text-align:right; font-size:12px; font-weight:600; color:#111; }
 
   .p-footer { padding:10px 14px; background:#fafafa; display:flex; flex-direction:column; gap:6px; }
   .p-update { width:100%; padding:8px 0; background:#f90; border-radius:5px; font-size:13px; font-weight:600; color:#111; text-align:center; }
@@ -142,13 +125,13 @@
       </svg>
       <div class="brand">Cart<span>Watch</span></div>
     </div>
-    <h1>Know exactly what you<br>spend on <span class="hl">Amazon</span>.</h1>
+    <h1>See your spending<br><span class="hl">trends</span> over time.</h1>
     <ul>
-      <li>Set a monthly budget, track it live</li>
-      <li>Updates automatically when you open it</li>
-      <li>See spending trends over the last 3-6 months</li>
-      <li>Filter by recipient or payment method</li>
-      <li>All data stays on your device</li>
+      <li>Compare the last 3 or 6 months at a glance</li>
+      <li>Average, median, high, and low spend</li>
+      <li>Sort by month, order count, or total</li>
+      <li>Filter by recipient</li>
+      <li>Double-click a month to see the orders</li>
     </ul>
   </div>
 
@@ -170,29 +153,15 @@
     </div>
     <div class="popup-wrap">
       <div class="p-tabbar">
-        <span class="p-tab active">Orders</span>
-        <span class="p-tab">Trends</span>
+        <span class="p-tab">Orders</span>
+        <span class="p-tab active">Trends</span>
       </div>
-      <div class="p-monthnav">
-        <span class="nav">&#8249;</span>
-        <span class="p-month">May 2026</span>
-        <span class="nav">&#8250;</span>
-      </div>
-      <div class="p-budget">
-        <div class="p-budrow">
-          <span class="p-label">Monthly budget</span>
-          <span class="p-budinput"><span class="p-cur">$</span><span class="p-budval">800</span></span>
-        </div>
-        <div class="p-barwrap">
-          <span class="p-bar"><span class="p-fill"></span></span>
-          <span class="p-pct">65%</span>
-        </div>
-        <div class="p-amounts">
-          <div><div class="p-amt">$520.43</div><div class="p-amtlabel">spent</div></div>
-          <div class="p-amtr"><div class="p-amt">$279.57</div><div class="p-amtlabel">remaining</div></div>
+      <div class="p-trendctl">
+        <div class="p-rangebtns">
+          <span class="p-rangebtn">Last 3 months</span>
+          <span class="p-rangebtn active">Last 6 months</span>
         </div>
       </div>
-      <div class="p-orders-h"><span class="p-label">Orders this month</span><span class="p-ocount">41</span></div>
       <div class="p-filterwrap">
         <div class="p-filtall"><span class="p-filtchk">&minus;</span> All recipients</div>
         <div class="p-filtbox">
@@ -202,6 +171,7 @@
           <div class="p-frow"><span class="p-chk"></span>Morgan</div>
           <div class="p-frow"><span class="p-chk on">&#10003;</span>Riley</div>
           <div class="p-frow"><span class="p-chk on">&#10003;</span>Taylor</div>
+          <div class="p-frow"><span class="p-chk on">&#10003;</span>Whole Foods Market (pickup)</div>
           <div class="p-scrollbar">
             <span class="p-sb-arrow">&#9650;</span>
             <span class="p-sb-track"><span class="p-sb-thumb"></span></span>
@@ -210,16 +180,19 @@
         </div>
       </div>
       <div class="p-resizehandle"></div>
-      <div class="p-toolbar">
-        <span class="p-hide"><span class="p-hidechk"></span> Hide cancelled</span>
-        <span class="p-sortbtns"><span class="p-sort active">Date &darr;</span><span class="p-sort">Amount</span></span>
-        <span class="p-ocount">41</span>
+      <div class="p-stats">
+        <div class="p-stat"><span class="p-statval">$829.20</span><span class="p-statlabel">Avg / month</span></div>
+        <div class="p-stat"><span class="p-statval">$945.78</span><span class="p-statlabel">Median</span></div>
+        <div class="p-stat"><span class="p-statval">$1,188.20</span><span class="p-statlabel">High</span></div>
+        <div class="p-stat"><span class="p-statval">$612.40</span><span class="p-statlabel">Low</span></div>
       </div>
-      <div class="p-list">
-        <div class="p-row"><span class="p-date">May 21</span><span class="p-expand">&#9656;</span><span class="p-name">First Alert Smoke Alarm</span><span class="p-oamt">$19.73</span></div>
-        <div class="p-row"><span class="p-date">May 18</span><span class="badge ret">RETURNING</span><span class="p-name">Anker USB-C Cable, 2-pack</span><span class="p-oamt">$24.99</span></div>
-        <div class="p-row"><span class="p-date">May 15</span><span class="p-name">Logitech MX Master 3S</span><span class="p-oamt">$99.99</span></div>
-        <div class="p-row"><span class="p-date">May 12</span><span class="badge part">&minus;$12.00</span><span class="p-name">Kitchen Towels +2 more</span><span class="p-oamt">$41.50</span></div>
+      <div class="p-ttable">
+        <div class="p-trow head"><span class="p-tmonth active">Month &darr;</span><span class="p-tcount">Orders</span><span class="p-ttotal">Total</span></div>
+        <div class="p-trow"><span class="p-tmonth">May 2026</span><span class="p-tcount">41</span><span class="p-ttotal">$728.19</span></div>
+        <div class="p-trow hover"><span class="p-tmonth">April 2026</span><span class="p-tcount">38</span><span class="p-ttotal">$867.73</span></div>
+        <div class="p-trow"><span class="p-tmonth">March 2026</span><span class="p-tcount">42</span><span class="p-ttotal">$1,188.20</span></div>
+        <div class="p-trow"><span class="p-tmonth">February 2026</span><span class="p-tcount">47</span><span class="p-ttotal">$1,167.24</span></div>
+        <div class="p-trow"><span class="p-tmonth">January 2026</span><span class="p-tcount">49</span><span class="p-ttotal">$1,023.83</span></div>
       </div>
       <div class="p-footer">
         <div class="p-update">Update Amazon Orders</div>

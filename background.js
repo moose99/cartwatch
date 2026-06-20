@@ -103,7 +103,7 @@ function isStale(s) {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'startScan') {
-    beginScan(msg.baseUrl || BASE_URL, msg.targetMonth);
+    beginScan(msg.baseUrl || BASE_URL, msg.targetMonth, msg.startMonth);
   }
   if (msg.type === 'pageScraped' && scanState && sender.tab?.id === scanState.tabId) {
     handlePageScraped(msg.orders, msg.totalCount).catch(console.error);
@@ -120,8 +120,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // Top-level listener (registered once) handles the user closing the scan tab.
 chrome.tabs.onRemoved.addListener((tabId) => {
   if (!scanState || tabId !== scanState.tabId) return;
+  const scanned = (scanState.cumScanned || 0) + (scanState.scanned || 0);
   chrome.storage.local.set(
-    { scanStatus: { scanning: false, scanned: scanState.scanned }, scanTabId: null },
+    { scanStatus: { scanning: false, scanned }, scanTabId: null },
     () => { void chrome.runtime.lastError; }
   );
   scanState = null;
@@ -164,37 +165,82 @@ function buildUrl(baseUrl, year, startIndex) {
   return `${baseUrl}/your-orders/orders?timeFilter=year-${year}&startIndex=${startIndex}`;
 }
 
-async function beginScan(baseUrl, targetMonth) {
-  const data = await chrome.storage.local.get({ scanStatus: null, orders: {}, yearTotals: {}, completedMonths: {} });
+// Returns all 'YYYY-MM' strings from start to end inclusive.
+function monthsBetween(start, end) {
+  const months = [];
+  let [y, m] = start.split('-').map(Number);
+  const [ey, em] = end.split('-').map(Number);
+  while (y < ey || (y === ey && m <= em)) {
+    months.push(`${y}-${String(m).padStart(2, '0')}`);
+    if (++m > 12) { m = 1; y++; }
+  }
+  return months;
+}
+
+// Splits a [start, end] month range into per-calendar-year segments, since Amazon's
+// order history page (timeFilter=year-N) only ever covers a single year.
+function splitIntoYearSegments(startMonth, endMonth) {
+  const segments = [];
+  let [sy] = startMonth.split('-').map(Number);
+  const [ey] = endMonth.split('-').map(Number);
+  for (let y = sy; y <= ey; y++) {
+    segments.push({
+      year: y,
+      startMonth: y === sy ? startMonth : `${y}-01`,
+      targetMonth: y === ey ? endMonth : `${y}-12`,
+    });
+  }
+  return segments;
+}
+
+async function beginScan(baseUrl, targetMonth, startMonth) {
+  if (!startMonth) startMonth = targetMonth;
+  const data = await chrome.storage.local.get({ scanStatus: null });
   if (data.scanStatus && data.scanStatus.scanning && !isStale(data.scanStatus)) {
     return;
   }
 
-  const startedAt = Date.now();
-  const [year] = targetMonth.split('-').map(Number);
-
-  // Only load this month's orders into memory rather than the full history.
-  // collectStep does a read-modify-write when saving, so other months are preserved.
-  const stored = {};
-  for (const [k, v] of Object.entries(data.orders)) {
-    if (v.date?.startsWith(targetMonth)) stored[k] = v;
-  }
-
   scanState = {
     baseUrl,
-    year,
-    targetMonth,
-    startedAt,
+    startedAt: Date.now(),
+    overallStartMonth: startMonth,
+    overallTargetMonth: targetMonth,
+    segments: splitIntoYearSegments(startMonth, targetMonth), // remaining year-segments, oldest first
+    cumScanned: 0,
+    cumMonthFound: 0,
+    didWork: false, // true once any segment actually scans (not just quick-exits)
+    tabId: null,
+  };
+
+  await startSegment();
+}
+
+// Pulls the next queued year-segment into the active per-segment scan fields and
+// navigates the scan tab to that year's first page (creating the tab on the first call;
+// later segments reuse the same tab since it's just a URL change to a different year).
+async function startSegment() {
+  const seg = scanState.segments.shift();
+  const data = await chrome.storage.local.get({ orders: {}, yearTotals: {}, completedMonths: {} });
+
+  // Load this segment's orders into memory. collectStep does a read-modify-write
+  // when saving, so orders outside this range are preserved.
+  const stored = {};
+  for (const [k, v] of Object.entries(data.orders)) {
+    const mo = v.date?.slice(0, 7);
+    if (mo && mo >= seg.startMonth && mo <= seg.targetMonth) stored[k] = v;
+  }
+
+  Object.assign(scanState, {
+    year: seg.year,
+    targetMonth: seg.targetMonth,
+    startMonth: seg.startMonth,
     stored,
     scanned: 0,
     monthFound: 0,
     total: null,
-    tabId: null,
-    knownYearTotal: data.yearTotals[year] ?? null, // used to detect if new orders exist
-    // True only when the target month's last scan completed fully. A partial scan
-    // (interrupted by sign-out, tab close, timeout) leaves stored orders but does
-    // NOT set this flag, so the next scan won't quick-exit on partial data.
-    targetMonthCompleted: !!data.completedMonths[targetMonth],
+    knownYearTotal: data.yearTotals[seg.year] ?? null, // used to detect if new orders exist
+    completedMonths: data.completedMonths, // full map so quick-exit can check every month in range
+    currentScanMonth: seg.targetMonth,
 
     // Binary search state
     phase: 'discover',
@@ -203,23 +249,38 @@ async function beginScan(baseUrl, targetMonth) {
     lastPageIndex: null,       // fixed end-of-year boundary used by collect phase
     currentStartIndex: 0,
     probes: 0,                 // count of discover-phase page loads
-  };
-
-  await chrome.storage.local.set({
-    scanStatus: { scanning: true, scanned: 0, monthFound: 0, total: null, phase: 'orders', startedAt }
   });
 
-  const url = buildUrl(baseUrl, year, 0);
-  // Chrome MV3 doesn't allow truly hidden tabs:
-  //   - tabs.create({ windowId: popupWindowId }) is silently redirected away from popup windows
-  //   - windows.create() creates a separate taskbar entry
-  // The least intrusive option is a background tab in the user's main browser
-  // window: it appears in the tab strip but doesn't take focus.
-  const tab = await chrome.tabs.create({ url, active: false });
-  scanState.tabId = tab.id;
-  // Persist tab id before the tab loads so the orphan-cleanup on next SW startup can
-  // close it if this service worker instance is terminated before the scan finishes.
-  await chrome.storage.local.set({ scanTabId: tab.id });
+  await chrome.storage.local.set({
+    scanStatus: {
+      scanning: true,
+      scanned: scanState.cumScanned,
+      monthFound: scanState.cumMonthFound,
+      total: null,
+      phase: 'orders',
+      startedAt: scanState.startedAt,
+      targetMonth: scanState.overallTargetMonth,
+      startMonth: scanState.overallStartMonth,
+      currentScanMonth: scanState.currentScanMonth,
+    }
+  });
+
+  const url = buildUrl(scanState.baseUrl, seg.year, 0);
+  if (scanState.tabId) {
+    scanState.currentStartIndex = 0;
+    await chrome.tabs.update(scanState.tabId, { url });
+  } else {
+    // Chrome MV3 doesn't allow truly hidden tabs:
+    //   - tabs.create({ windowId: popupWindowId }) is silently redirected away from popup windows
+    //   - windows.create() creates a separate taskbar entry
+    // The least intrusive option is a background tab in the user's main browser
+    // window: it appears in the tab strip but doesn't take focus.
+    const tab = await chrome.tabs.create({ url, active: false });
+    scanState.tabId = tab.id;
+    // Persist tab id before the tab loads so the orphan-cleanup on next SW startup can
+    // close it if this service worker instance is terminated before the scan finishes.
+    await chrome.storage.local.set({ scanTabId: tab.id });
+  }
   armPageTimer();
 }
 
@@ -239,20 +300,20 @@ async function handlePageScraped(orders, totalCount) {
     scanState.lastPageIndex = lastPage;
     scanState.hi = lastPage;
 
-    // Quick-exit: if the year order count is unchanged AND the target month's
-    // previous scan completed fully, there is nothing new to collect.
-    // We require completion (not just "has any data") so that an interrupted
-    // partial scan doesn't cause subsequent re-scans to skip collection.
+    // Quick-exit this segment: year order count unchanged AND every month in this
+    // segment's range was previously completed. Other queued segments (a different
+    // calendar year) may still need scanning, so this only ends the current segment.
     if (scanState.knownYearTotal !== null && totalCount === scanState.knownYearTotal
-        && scanState.targetMonthCompleted) {
-      return finalizeScan({ upToDate: true });
+        && monthsBetween(scanState.startMonth, scanState.targetMonth)
+              .every(m => scanState.completedMonths[m])) {
+      return finalizeSegment({ upToDate: true });
     }
   }
 
   scanState.scanned += orders.length;
 
   if (orders.length === 0) {
-    return finalizeScan();
+    return finalizeSegment();
   }
 
   if (scanState.phase === 'discover') {
@@ -260,11 +321,14 @@ async function handlePageScraped(orders, totalCount) {
     await chrome.storage.local.set({
       scanStatus: {
         scanning: true,
-        scanned: scanState.scanned,
-        monthFound: scanState.monthFound,
+        scanned: scanState.cumScanned + scanState.scanned,
+        monthFound: scanState.cumMonthFound + scanState.monthFound,
         total: scanState.total,
         phase: 'orders',
         startedAt: scanState.startedAt,
+        targetMonth: scanState.overallTargetMonth,
+        startMonth: scanState.overallStartMonth,
+        currentScanMonth: scanState.currentScanMonth,
       }
     });
     return discoverStep(orders);
@@ -304,11 +368,17 @@ async function discoverStep(orders) {
   return navigateToStartIndex(next);
 }
 
-// Linear scan forward, collecting target-month orders until we cross before it.
+// Linear scan forward collecting orders in [startMonth, targetMonth] until we cross before startMonth.
 async function collectStep(orders) {
-  const { stored, targetMonth } = scanState;
-  const targetOrders = orders.filter(o => o.date && o.date.startsWith(targetMonth));
-  const passedMonth = orders.some(o => o.date && o.date.slice(0, 7) < targetMonth);
+  const { stored, startMonth, targetMonth } = scanState;
+  const targetOrders = orders.filter(o => {
+    const m = o.date?.slice(0, 7);
+    return m && m >= startMonth && m <= targetMonth;
+  });
+  const passedMonth = orders.some(o => {
+    const m = o.date?.slice(0, 7);
+    return m && m < startMonth;
+  });
 
   targetOrders.forEach(o => {
     const key = o.id || `${o.date}_${o.amount}`;
@@ -326,6 +396,12 @@ async function collectStep(orders) {
 
   scanState.monthFound += targetOrders.length;
 
+  // Track the oldest month touched on this page so the UI can show which month is being processed.
+  if (targetOrders.length > 0) {
+    const oldest = targetOrders[targetOrders.length - 1].date?.slice(0, 7);
+    if (oldest) scanState.currentScanMonth = oldest;
+  }
+
   // Read the full order history, merge this month's updates, then write everything
   // in a single call. scanState.stored holds only the target month so we must
   // merge rather than replace.
@@ -335,48 +411,72 @@ async function collectStep(orders) {
     lastScan: Date.now(),
     scanStatus: {
       scanning: true,
-      scanned: scanState.scanned,
-      monthFound: scanState.monthFound,
+      scanned: scanState.cumScanned + scanState.scanned,
+      monthFound: scanState.cumMonthFound + scanState.monthFound,
       total: scanState.total,
       phase: 'orders',
       startedAt: scanState.startedAt,
+      targetMonth: scanState.overallTargetMonth,
+      startMonth: scanState.overallStartMonth,
+      currentScanMonth: scanState.currentScanMonth,
     },
   });
 
   if (passedMonth) {
-    return finalizeScan();
+    return finalizeSegment();
   }
 
   const nextIndex = scanState.currentStartIndex + PAGE_SIZE;
   if (scanState.lastPageIndex !== null && nextIndex > scanState.lastPageIndex) {
-    return finalizeScan();
+    return finalizeSegment();
   }
   return navigateToStartIndex(nextIndex);
 }
 
-async function finalizeScan(opts = {}) {
+// Completes the current year-segment: persists its completedMonths/yearTotals (skipped on a
+// quick-exit, since nothing changed) and folds its counts into the running totals. If more
+// segments remain (the requested range spanned multiple calendar years), advances to the next
+// one; otherwise ends the whole scan.
+async function finalizeSegment(opts = {}) {
   clearPageTimer();
+  scanState.cumScanned += scanState.scanned || 0;
+  scanState.cumMonthFound += scanState.monthFound || 0;
+  if (!opts.upToDate) scanState.didWork = true;
+
+  // Persist the year total and mark this segment's months as fully scanned. Only happens
+  // on a clean finalize (not on timeout/tab-close, and not on a quick-exit where nothing
+  // changed), so an interrupted scan won't falsely mark months complete.
+  if (!opts.upToDate && scanState.total) {
+    const { yearTotals = {}, completedMonths = {} } = await chrome.storage.local.get({ yearTotals: {}, completedMonths: {} });
+    const monthUpdates = {};
+    monthsBetween(scanState.startMonth, scanState.targetMonth).forEach(m => { monthUpdates[m] = Date.now(); });
+    await chrome.storage.local.set({
+      yearTotals: { ...yearTotals, [scanState.year]: scanState.total },
+      completedMonths: { ...completedMonths, ...monthUpdates },
+    });
+  }
+
+  if (scanState.segments.length > 0) {
+    return startSegment();
+  }
+  return finishScan();
+}
+
+// Ends the overall (possibly multi-year) scan: closes the tab and writes the final status.
+async function finishScan() {
   const tabId = scanState.tabId;
-  scanState.tabId = null;
   if (tabId) { try { await chrome.tabs.remove(tabId); } catch (e) {} }
-  const monthFound = scanState.monthFound || 0;
-  const targetMonth = scanState.targetMonth;
-  const { scanned } = scanState;
+  const { cumScanned: scanned, cumMonthFound: monthFound, overallStartMonth, overallTargetMonth, didWork } = scanState;
   const storageUpdate = { scanTabId: null };
-  if (opts.upToDate) {
+  if (!didWork) {
     storageUpdate.scanStatus = { scanning: false, upToDate: true };
   } else {
-    const finalStatus = { scanning: false, scanned, monthFound, targetMonth };
-    if (monthFound === 0) finalStatus.info = `No orders found for ${targetMonth}.`;
+    const finalStatus = { scanning: false, scanned, monthFound, targetMonth: overallTargetMonth, startMonth: overallStartMonth };
+    if (monthFound === 0) {
+      const label = overallStartMonth === overallTargetMonth ? overallTargetMonth : `${overallStartMonth} to ${overallTargetMonth}`;
+      finalStatus.info = `No orders found for ${label}.`;
+    }
     storageUpdate.scanStatus = finalStatus;
-  }
-  // Persist the year total and mark this month as fully scanned. Only happens
-  // on a clean finalize (not on timeout or tab-close interruption), so an
-  // interrupted scan won't falsely mark the month complete.
-  if (scanState.total) {
-    const { yearTotals = {}, completedMonths = {} } = await chrome.storage.local.get({ yearTotals: {}, completedMonths: {} });
-    storageUpdate.yearTotals = { ...yearTotals, [scanState.year]: scanState.total };
-    storageUpdate.completedMonths = { ...completedMonths, [targetMonth]: Date.now() };
   }
   await chrome.storage.local.set(storageUpdate);
   scanState = null;

@@ -22,6 +22,13 @@
   let lastAlertedAt = 0; // errorAt timestamp of the last alert we showed
   const expandedOrders = new Set();
 
+  let activeTab = 'orders';  // 'orders' | 'trends'
+  let trendsRange = 3;       // number of completed months to show
+  const excludedTrendsAddresses = new Set(); // recipients unchecked in the Trends filter
+  let trendsSortBy = 'month'; // 'month' | 'orders' | 'total'
+  let trendsSortDir = -1;     // -1 = descending, 1 = ascending
+  const TRENDS_COL_LABELS = { month: 'Month', orders: 'Orders', total: 'Total' };
+
   // --- Init ---
 
   // Help modal
@@ -68,6 +75,51 @@
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+  });
+
+  // Resize handle between the trends recipient filter and the stats row
+  document.getElementById('trends-filter-resize-handle').addEventListener('mousedown', e => {
+    e.preventDefault();
+    const filterDiv = document.getElementById('trends-filter');
+    const handle = document.getElementById('trends-filter-resize-handle');
+    const startY = e.clientY;
+    const startH = filterDiv.getBoundingClientRect().height;
+    handle.classList.add('dragging');
+    function onMove(ev) {
+      const newH = Math.max(40, Math.min(300, startH + (ev.clientY - startY)));
+      filterDiv.style.height = newH + 'px';
+    }
+    function onUp() {
+      handle.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  // Trends range buttons
+  document.querySelectorAll('.range-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      trendsRange = parseInt(btn.dataset.months, 10);
+      document.querySelectorAll('.range-btn').forEach(b => b.classList.toggle('range-active', b === btn));
+      renderTrends();
+    });
+  });
+
+  // Trends table sortable column headers
+  document.querySelectorAll('#tab-trends th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if (trendsSortBy === key) trendsSortDir = -trendsSortDir;
+      else { trendsSortBy = key; trendsSortDir = -1; }
+      renderTrends();
+    });
   });
 
   document.getElementById('sort-date').addEventListener('click', () => {
@@ -125,7 +177,8 @@
     if (changes.scanStatus || changes.lastScan) {
       chrome.storage.local.get({ scanStatus: null, lastScan: 0 }, d => renderScanProgress(d.scanStatus, d.lastScan));
     }
-    render();
+    if (activeTab === 'trends') renderTrends();
+    else render();
   });
 
   // --- Render ---
@@ -191,16 +244,19 @@
     const savedScroll = list.scrollTop;
     list.innerHTML = '';
 
+    const headerCount = document.getElementById('orders-header-count');
     if (monthOrders.length === 0) {
       const li = document.createElement('li');
       li.className = 'empty-state';
       li.textContent = 'No orders found for this month.';
       list.appendChild(li);
       document.getElementById('order-count').textContent = '';
+      headerCount.textContent = '';
       return;
     }
 
     document.getElementById('order-count').textContent = monthOrders.length;
+    headerCount.textContent = monthOrders.length;
     monthOrders.sort((a, b) => {
       if (sortBy === 'amount') return (a.amount - b.amount) * sortDir;
       return a.date.localeCompare(b.date) * sortDir;
@@ -444,7 +500,8 @@
       if (status.phase === 'orders') {
         barFill.classList.add('indeterminate');
         barFill.style.width = '';
-        progressEl.textContent = `Scanning Amazon Orders... ${status.monthFound || 0} found`;
+        const monthToShow = status.currentScanMonth || status.targetMonth || viewMonth;
+        progressEl.textContent = `Scanning orders for ${formatMonthLabel(monthToShow)} - ${status.monthFound || 0} found`;
       }
       progressEl.style.display = '';
       lastScanEl.textContent = '';
@@ -504,7 +561,12 @@
     } catch (e) { /* tabs query failed, use default */ }
 
     safeSet({ scanStatus: { scanning: false }, amazonOrigin: baseUrl }, () => {
-      chrome.runtime.sendMessage({ type: 'startScan', baseUrl, targetMonth: viewMonth });
+      if (activeTab === 'trends') {
+        const months = getCompletedMonthRange(trendsRange);
+        chrome.runtime.sendMessage({ type: 'startScan', baseUrl, targetMonth: months[months.length - 1], startMonth: months[0] });
+      } else {
+        chrome.runtime.sendMessage({ type: 'startScan', baseUrl, targetMonth: viewMonth });
+      }
     });
   }
 
@@ -575,6 +637,170 @@
     budget = parseFloat(e.target.value) || 0;
     safeSet({ budget });
     render();
+  }
+
+  // --- Trends tab ---
+
+  function switchTab(tab) {
+    activeTab = tab;
+    document.getElementById('tab-orders').style.display = tab === 'orders' ? '' : 'none';
+    document.getElementById('tab-trends').style.display = tab === 'trends' ? '' : 'none';
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('tab-active', b.dataset.tab === tab));
+    if (tab === 'trends') renderTrends();
+    else render();
+  }
+
+  // Returns an array of 'YYYY-MM' strings for the last n completed months (oldest first).
+  function getCompletedMonthRange(n) {
+    const months = [];
+    const now = new Date();
+    for (let i = n; i >= 1; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    return months;
+  }
+
+  function renderTrendsFilter(recipients) {
+    const filterDiv = document.getElementById('trends-filter');
+    const container = document.getElementById('trends-filter-checks');
+    const filterAllCb = document.getElementById('trends-filter-all');
+    const handle = document.getElementById('trends-filter-resize-handle');
+
+    if (recipients.size <= 1) {
+      filterDiv.style.display = 'none';
+      handle.style.display = 'none';
+      excludedTrendsAddresses.clear();
+      return;
+    }
+    if (filterDiv.style.display === 'none') {
+      filterDiv.style.display = '';
+      if (!filterDiv.style.height) filterDiv.style.height = '90px';
+    }
+    handle.style.display = '';
+
+    // Remove exclusions for recipients no longer in range
+    for (const n of excludedTrendsAddresses) {
+      if (!recipients.has(n)) excludedTrendsAddresses.delete(n);
+    }
+
+    container.innerHTML = '';
+    Array.from(recipients).sort().forEach(n => {
+      const label = document.createElement('label');
+      label.className = 'filter-check-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !excludedTrendsAddresses.has(n);
+      cb.addEventListener('change', () => {
+        if (cb.checked) excludedTrendsAddresses.delete(n); else excludedTrendsAddresses.add(n);
+        filterAllCb.checked = excludedTrendsAddresses.size === 0;
+        filterAllCb.indeterminate = excludedTrendsAddresses.size > 0 && excludedTrendsAddresses.size < recipients.size;
+        renderTrends();
+      });
+      const span = document.createElement('span');
+      span.textContent = n;
+      label.appendChild(cb);
+      label.appendChild(span);
+      container.appendChild(label);
+    });
+
+    filterAllCb.checked = excludedTrendsAddresses.size === 0;
+    filterAllCb.indeterminate = excludedTrendsAddresses.size > 0 && excludedTrendsAddresses.size < recipients.size;
+    filterAllCb.onchange = () => {
+      if (filterAllCb.checked) excludedTrendsAddresses.clear();
+      else recipients.forEach(n => excludedTrendsAddresses.add(n));
+      renderTrends();
+    };
+  }
+
+  function renderTrends() {
+    const months = getCompletedMonthRange(trendsRange);
+    const monthSet = new Set(months);
+
+    // Collect all recipient names present in the range
+    const recipients = new Set();
+    for (const o of Object.values(allOrders)) {
+      if (monthSet.has(o.date?.slice(0, 7)) && o.shipTo) recipients.add(o.shipTo);
+    }
+    renderTrendsFilter(recipients);
+
+    // Compute monthly net spend and order count, applying recipient filter
+    const totals = {};
+    months.forEach(m => { totals[m] = { net: 0, count: 0 }; });
+    for (const o of Object.values(allOrders)) {
+      const m = o.date?.slice(0, 7);
+      if (!m || !totals[m]) continue;
+      if (o.shipTo && excludedTrendsAddresses.has(o.shipTo)) continue;
+      totals[m].net += Math.max(0, (o.amount || 0) - (o.refundedAmount || 0));
+      totals[m].count++;
+    }
+
+    // Stats across all months in range
+    const values = months.map(m => totals[m].net);
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+
+    document.getElementById('stat-avg').textContent = fmt(avg);
+    document.getElementById('stat-median').textContent = fmt(median);
+    document.getElementById('stat-max').textContent = fmt(Math.max(...values));
+    document.getElementById('stat-min').textContent = fmt(Math.min(...values));
+
+    renderTrendsSortHeaders();
+
+    // Table, sorted by the active column; double-click a row to view that month in Orders tab
+    const tbody = document.getElementById('trends-tbody');
+    tbody.innerHTML = '';
+    if (values.every(v => v === 0) && months.every(m => totals[m].count === 0)) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 3;
+      td.className = 'trends-empty';
+      td.textContent = 'No orders found for this period. Click Update Amazon Orders to scan.';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+
+    const rows = months.map(m => ({ month: m, count: totals[m].count, net: totals[m].net }));
+    rows.sort((a, b) => {
+      let cmp;
+      if (trendsSortBy === 'orders') cmp = a.count - b.count;
+      else if (trendsSortBy === 'total') cmp = a.net - b.net;
+      else cmp = a.month.localeCompare(b.month);
+      return cmp * trendsSortDir;
+    });
+
+    const frag = document.createDocumentFragment();
+    rows.forEach(({ month: m, count, net }) => {
+      const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      tr.title = 'Double-click to view in Orders tab';
+      tr.addEventListener('dblclick', () => { viewMonth = m; switchTab('orders'); });
+      const tdMonth = document.createElement('td');
+      tdMonth.textContent = formatMonthLabel(m);
+      const tdCount = document.createElement('td');
+      tdCount.className = 'col-right';
+      tdCount.textContent = count;
+      const tdTotal = document.createElement('td');
+      tdTotal.className = 'col-right col-total';
+      tdTotal.textContent = fmt(net);
+      tr.appendChild(tdMonth);
+      tr.appendChild(tdCount);
+      tr.appendChild(tdTotal);
+      frag.appendChild(tr);
+    });
+    tbody.appendChild(frag);
+  }
+
+  function renderTrendsSortHeaders() {
+    const arrow = trendsSortDir === -1 ? ' ↓' : ' ↑';
+    document.querySelectorAll('#tab-trends th[data-sort]').forEach(th => {
+      const key = th.dataset.sort;
+      th.textContent = TRENDS_COL_LABELS[key] + (trendsSortBy === key ? arrow : '');
+      th.classList.toggle('sort-active', trendsSortBy === key);
+    });
   }
 
   // --- Helpers ---

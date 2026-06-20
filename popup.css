@@ -16,25 +16,15 @@ body {
   overflow: hidden;
 }
 
-/* Header */
-.header {
-  background: #232f3e;
-  color: #fff;
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.logo-icon { flex-shrink: 0; }
-.title { font-size: 14px; font-weight: 600; letter-spacing: .3px; flex: 1; }
+/* Help button (lives next to "Last scanned" in the footer) */
 .help-btn {
   background: none;
-  border: 1px solid rgba(255,255,255,0.3);
+  border: 1px solid #ccc;
   border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  color: rgba(255,255,255,0.7);
-  font-size: 12px;
+  width: 18px;
+  height: 18px;
+  color: #999;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   line-height: 1;
@@ -44,7 +34,7 @@ body {
   justify-content: center;
   padding: 0;
 }
-.help-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+.help-btn:hover { border-color: #f90; color: #e88400; }
 
 /* Help modal */
 .help-overlay {
@@ -308,6 +298,9 @@ body {
 .orders-header {
   padding: 10px 14px 6px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 /* Sort controls */
 .order-count {
@@ -599,6 +592,7 @@ body {
 .clear-btn:hover { border-color: #cc2200; color: #cc2200; }
 .footer-actions {
   display: flex;
+  align-items: center;
   gap: 6px;
   width: 100%;
 }
@@ -618,3 +612,132 @@ body {
   transition: border-color .15s, color .15s;
 }
 .footer-btn:hover { border-color: #f90; color: #e88400; }
+
+/* Tab bar */
+.tab-bar {
+  display: flex;
+  background: #fff;
+  border-bottom: 2px solid #e8e8e8;
+  flex-shrink: 0;
+}
+.tab-btn {
+  flex: 1;
+  padding: 9px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+}
+.tab-btn:hover { color: #232f3e; }
+.tab-btn.tab-active { color: #232f3e; border-bottom-color: #f90; }
+
+/* Tab content area */
+.tab-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Trends controls */
+.trends-controls {
+  padding: 10px 14px 8px;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.range-btns { display: flex; gap: 4px; }
+.range-btn {
+  padding: 4px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  background: #f5f5f5;
+  cursor: pointer;
+}
+.range-btn:hover { background: #ebebeb; }
+.range-btn.range-active { background: #232f3e; border-color: #232f3e; color: #fff; }
+
+/* Trends recipient filter */
+.trends-filter {
+  padding: 6px 14px 8px;
+  background: #fff;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+/* Stats row */
+.trends-stats {
+  display: flex;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+  padding: 10px 14px;
+  flex-shrink: 0;
+}
+.stat-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.stat-block + .stat-block { border-left: 1px solid #f0f0f0; }
+.stat-value { font-size: 14px; font-weight: 700; color: #111; }
+.stat-label { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: .3px; }
+
+/* Trends table */
+.trends-table-wrap {
+  flex: 1;
+  overflow-y: auto;
+  background: #fff;
+}
+.trends-table-wrap::-webkit-scrollbar { width: 10px; }
+.trends-table-wrap::-webkit-scrollbar-thumb { background: #bbb; border-radius: 5px; border: 2px solid #fff; }
+.trends-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.trends-table th {
+  padding: 6px 14px;
+  text-align: left;
+  font-size: 11px;
+  color: #666;
+  font-weight: 600;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  background: #fafafa;
+  border-bottom: 1px solid #e8e8e8;
+  position: sticky;
+  top: 0;
+}
+.trends-table th.col-right,
+.trends-table td.col-right { text-align: right; }
+.trends-table th.sortable { cursor: pointer; user-select: none; }
+.trends-table th.sortable:hover { color: #232f3e; }
+.trends-table th.sort-active { color: #232f3e; }
+.trends-table td {
+  padding: 9px 14px;
+  border-top: 1px solid #f0f0f0;
+  color: #333;
+}
+.trends-table tr:first-child td { border-top: none; }
+.trends-table td.col-total { font-weight: 600; color: #111; }
+.trends-table tbody tr:hover { background: #fff6e8; }
+.trends-empty {
+  padding: 20px 14px;
+  text-align: center;
+  color: #aaa;
+  font-size: 12px;
+  font-style: italic;
+}

@@ -7,18 +7,9 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="header">
-    <svg class="logo-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="22" height="22">
-      <rect x="1" y="1" width="46" height="46" rx="8" fill="#37475a"/>
-      <rect x="21" y="24" width="17" height="6" rx="2" fill="#FF9900"/>
-      <path d="M6 14 L17 14 L22 30 L37 30 L40 18 L20 18"
-            fill="none" stroke="white" stroke-width="2.5"
-            stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="25" cy="36" r="3" fill="none" stroke="white" stroke-width="2.5"/>
-      <circle cx="35" cy="36" r="3" fill="none" stroke="white" stroke-width="2.5"/>
-    </svg>
-    <span class="title">CartWatch</span>
-    <button id="help-btn" class="help-btn" title="Help">?</button>
+  <div class="tab-bar">
+    <button class="tab-btn tab-active" data-tab="orders">Orders</button>
+    <button class="tab-btn" data-tab="trends">Trends</button>
   </div>
 
   <!-- Help modal -->
@@ -78,6 +69,8 @@
     </div>
   </div>
 
+  <!-- Orders tab -->
+  <div id="tab-orders" class="tab-content">
   <div class="month-nav">
     <button id="prev-month" class="nav-btn" title="Previous month">&#8249;</button>
     <span id="month-label" class="month-label"></span>
@@ -115,6 +108,7 @@
   <div class="orders-section">
     <div class="orders-header">
       <span class="label">Orders this month</span>
+      <span id="orders-header-count" class="order-count"></span>
     </div>
     <div class="filter-row" id="filter-row" style="display:none">
       <div id="address-filter-section">
@@ -146,6 +140,55 @@
     </div>
     <ul id="orders-list" class="orders-list"></ul>
   </div>
+  </div><!-- end #tab-orders -->
+
+  <!-- Trends tab -->
+  <div id="tab-trends" class="tab-content" style="display:none">
+    <div class="trends-controls">
+      <div class="range-btns">
+        <button class="range-btn range-active" data-months="3">Last 3 months</button>
+        <button class="range-btn" data-months="6">Last 6 months</button>
+      </div>
+    </div>
+    <div class="trends-filter" id="trends-filter" style="display:none">
+      <label class="filter-all-label">
+        <input type="checkbox" id="trends-filter-all" checked>
+        <span>All recipients</span>
+      </label>
+      <div id="trends-filter-checks" class="card-filter-checks"></div>
+    </div>
+    <div id="trends-filter-resize-handle" class="filter-resize-handle" style="display:none"></div>
+    <div class="trends-stats">
+      <div class="stat-block">
+        <span class="stat-value" id="stat-avg">--</span>
+        <span class="stat-label">Avg / month</span>
+      </div>
+      <div class="stat-block">
+        <span class="stat-value" id="stat-median">--</span>
+        <span class="stat-label">Median</span>
+      </div>
+      <div class="stat-block">
+        <span class="stat-value" id="stat-max">--</span>
+        <span class="stat-label">High</span>
+      </div>
+      <div class="stat-block">
+        <span class="stat-value" id="stat-min">--</span>
+        <span class="stat-label">Low</span>
+      </div>
+    </div>
+    <div class="trends-table-wrap">
+      <table class="trends-table">
+        <thead>
+          <tr>
+            <th data-sort="month" class="sortable">Month</th>
+            <th data-sort="orders" class="sortable col-right">Orders</th>
+            <th data-sort="total" class="sortable col-right">Total</th>
+          </tr>
+        </thead>
+        <tbody id="trends-tbody"></tbody>
+      </table>
+    </div>
+  </div><!-- end #tab-trends -->
 
   <div class="footer">
     <button id="scan-btn" class="scan-btn">Update Amazon Orders</button>
@@ -159,7 +202,12 @@
     <button id="clear-btn" class="clear-btn">Clear data</button>
     <div class="footer-actions">
       <button id="play-game-btn" class="footer-btn play-btn">🎮 Play a Game</button>
+      <button id="help-btn" class="help-btn" title="Help">?</button>
       <a href="https://buymeacoffee.com/mthamer" target="_blank" class="footer-btn donate-btn">☕ Buy me a coffee</a>
+    </div>
+    <div class="footer-actions">
+      <a href="https://chromewebstore.google.com/detail/cartwatch/limngcimckbjlplebehebajacgepcaca/reviews" target="_blank" class="footer-btn">&#9733; Reviews</a>
+      <a href="https://chromewebstore.google.com/detail/limngcimckbjlplebehebajacgepcaca/support" target="_blank" class="footer-btn">Support Hub</a>
     </div>
   </div>
 
