@@ -465,6 +465,9 @@ async function finalizeSegment(opts = {}) {
 // Ends the overall (possibly multi-year) scan: closes the tab and writes the final status.
 async function finishScan() {
   const tabId = scanState.tabId;
+  // Clear tabId before removing the tab: chrome.tabs.remove() fires onRemoved
+  // synchronously, and that listener nulls scanState if tabId still matches.
+  scanState.tabId = null;
   if (tabId) { try { await chrome.tabs.remove(tabId); } catch (e) {} }
   const { cumScanned: scanned, cumMonthFound: monthFound, overallStartMonth, overallTargetMonth, didWork } = scanState;
   const storageUpdate = { scanTabId: null };

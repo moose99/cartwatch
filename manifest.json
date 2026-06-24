@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "CartWatch",
-  "version": "1.3.0",
-  "description": "Track your Amazon spending and stay under your monthly budget.",
+  "name": "CartWatch - Amazon Budget & Spending Tracker",
+  "version": "1.3.2",
+  "description": "Amazon budget and spending tracker: monitor monthly spend, view spending trends, filter orders, and track refunds. Data stays local.",
   "permissions": ["storage", "tabs", "scripting"],
   "host_permissions": [
     "https://www.amazon.com/*",
